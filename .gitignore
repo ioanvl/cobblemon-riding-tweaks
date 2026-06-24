@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+*/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Minecraft run directories
+run/
+runs/
+*/run/
+*/runs/
+
+# IDE/editor local state
+.vscode/
+.idea/
+*.iml
+bin/
+
+# OS/log noise
+.DS_Store
+*.log
+hs_err_pid*
+replay_pid*
