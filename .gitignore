@@ -12,9 +12,12 @@ runs/
 
 # IDE/editor local state
 .vscode/
+.eclipse/
+*/.eclipse/
 .idea/
 *.iml
 bin/
+*/bin/
 
 # OS/log noise
 .DS_Store
