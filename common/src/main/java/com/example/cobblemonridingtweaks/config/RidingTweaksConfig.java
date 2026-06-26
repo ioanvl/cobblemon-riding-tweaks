@@ -6,12 +6,18 @@ import java.util.Map;
 import java.util.Set;
 
 public final class RidingTweaksConfig {
+    public static final String SUPPORTED_CONFIG_VERSION = "1.0.0";
+
+    public String configVersion = SUPPORTED_CONFIG_VERSION;
     public boolean enabled = true;
     public boolean debugLogging = false;
     public StaminaTweaks stamina = new StaminaTweaks();
     public SpeedTweaks speed = new SpeedTweaks();
 
     public RidingTweaksConfig sanitize() {
+        if (configVersion == null || configVersion.isBlank()) {
+            configVersion = SUPPORTED_CONFIG_VERSION;
+        }
         if (stamina == null) {
             stamina = new StaminaTweaks();
         }

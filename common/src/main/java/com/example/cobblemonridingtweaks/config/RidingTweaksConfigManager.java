@@ -3,6 +3,9 @@ package com.example.cobblemonridingtweaks.config;
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -252,12 +255,69 @@ public final class RidingTweaksConfigManager {
 
     private static RidingTweaksConfig fromJson(String json) {
         try {
+            String configVersion = readConfigVersion(json);
+            if (isNewerVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
+                LOGGER.error(
+                        "Synced {} config version {} is newer than this client supports ({}); using vanilla behaviour",
+                        CobblemonRidingTweaks.MOD_NAME,
+                        configVersion,
+                        RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
+                );
+                return vanillaConfig();
+            }
+
             RidingTweaksConfig config = GSON.fromJson(json, RidingTweaksConfig.class);
             return config == null ? new RidingTweaksConfig() : config;
         } catch (JsonSyntaxException exception) {
             LOGGER.error("Failed to parse synced {} config; using vanilla behaviour", CobblemonRidingTweaks.MOD_NAME, exception);
             return vanillaConfig();
         }
+    }
+
+    private static String readConfigVersion(String json) {
+        JsonElement element = JsonParser.parseString(json);
+        if (!element.isJsonObject()) {
+            return RidingTweaksConfig.SUPPORTED_CONFIG_VERSION;
+        }
+
+        JsonObject object = element.getAsJsonObject();
+        JsonElement version = object.get("configVersion");
+        if (version == null || version.isJsonNull()) {
+            return RidingTweaksConfig.SUPPORTED_CONFIG_VERSION;
+        }
+        return version.getAsString();
+    }
+
+    private static boolean isNewerVersion(String candidate, String supported) {
+        int[] candidateParts = parseVersion(candidate);
+        int[] supportedParts = parseVersion(supported);
+        for (int i = 0; i < 3; i++) {
+            if (candidateParts[i] > supportedParts[i]) {
+                return true;
+            }
+            if (candidateParts[i] < supportedParts[i]) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    private static int[] parseVersion(String version) {
+        int[] parts = new int[] { 0, 0, 0 };
+        if (version == null || version.isBlank()) {
+            return parts;
+        }
+
+        String[] rawParts = version.split("\\.");
+        for (int i = 0; i < Math.min(parts.length, rawParts.length); i++) {
+            try {
+                parts[i] = Math.max(0, Integer.parseInt(rawParts[i]));
+            } catch (NumberFormatException exception) {
+                LOGGER.warn("Invalid {} config version '{}'; treating it as 0.0.0", CobblemonRidingTweaks.MOD_NAME, version);
+                return new int[] { 0, 0, 0 };
+            }
+        }
+        return parts;
     }
 
     private static RidingTweaksConfig vanillaConfig() {
