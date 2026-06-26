@@ -1,6 +1,7 @@
 package com.example.cobblemonridingtweaks.fabric.client;
 
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
+import com.example.cobblemonridingtweaks.fabric.net.ConfigEditResultPayload;
 import com.example.cobblemonridingtweaks.fabric.net.ConfigSyncPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -12,6 +13,9 @@ public final class CobblemonRidingTweaksFabricClient implements ClientModInitial
         ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.TYPE, (payload, context) ->
                 context.client().execute(() -> CobblemonRidingTweaks.configManager()
                         .applyServerConfig(payload.configJson(), payload.canEditServerConfig()))
+        );
+        ClientPlayNetworking.registerGlobalReceiver(ConfigEditResultPayload.TYPE, (payload, context) ->
+                context.client().execute(() -> RidingTweaksConfigScreen.showFeedback(payload.message(), payload.success()))
         );
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->

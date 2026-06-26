@@ -11,6 +11,12 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 public final class RidingTweaksConfigScreen extends Screen {
+    private static final long FEEDBACK_VISIBLE_MILLIS = 5_000L;
+
+    private static String feedbackMessage = "";
+    private static boolean feedbackSuccess = true;
+    private static long feedbackUntilMillis;
+
     private final Screen parent;
     private Tab selectedTab = Tab.LOCAL;
 
@@ -77,16 +83,33 @@ public final class RidingTweaksConfigScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         renderBackground(graphics, mouseX, mouseY, partialTick);
-        graphics.drawCenteredString(this.font, this.title, this.width / 2, 24, 0xFFFFFF);
-        graphics.drawCenteredString(this.font, Component.literal(configSummary()), this.width / 2, 48, 0xA0A0A0);
-        graphics.drawCenteredString(this.font, Component.literal(statusText()), this.width / 2, this.height - 46, 0xA0A0A0);
-        graphics.drawCenteredString(this.font, Component.literal(sourceText()), this.width / 2, this.height - 32, 0x808080);
         super.render(graphics, mouseX, mouseY, partialTick);
+        drawCenteredStringWithBacking(graphics, this.title.getString(), 24, 0xFFFFFF, 0x70000000);
+        drawCenteredStringWithBacking(graphics, configSummary(), 48, 0xD0D0D0, 0x70000000);
+        drawCenteredStringWithBacking(graphics, statusText(), this.height - 50, 0xE0E0E0, 0x85000000);
+        drawCenteredStringWithBacking(graphics, sourceText(), this.height - 34, 0xB8B8B8, 0x85000000);
+
+        String feedback = feedbackText();
+        if (!feedback.isBlank()) {
+            drawCenteredStringWithBacking(
+                    graphics,
+                    feedback,
+                    this.height - 68,
+                    feedbackSuccess ? 0x80FF80 : 0xFF8080,
+                    0xA0000000
+            );
+        }
     }
 
     @Override
     public void onClose() {
         this.minecraft.setScreen(parent);
+    }
+
+    public static void showFeedback(String message, boolean success) {
+        feedbackMessage = message == null ? "" : message;
+        feedbackSuccess = success;
+        feedbackUntilMillis = System.currentTimeMillis() + FEEDBACK_VISIBLE_MILLIS;
     }
 
     private void rebuildConfigButtons() {
@@ -147,16 +170,37 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private void saveCurrentConfig() {
         if (selectedTab == Tab.SERVER) {
+            showFeedback("Saving server config...", true);
             ClientPlayNetworking.send(new ConfigUpdatePayload(manager().activeConfigJson()));
             return;
         }
         manager().save();
+        showFeedback("Saved local config.", true);
     }
 
     private void saveLocalChangesIfNeeded() {
         if (selectedTab == Tab.LOCAL) {
             manager().save();
+            showFeedback("Saved local config.", true);
         }
+    }
+
+    private String feedbackText() {
+        if (feedbackMessage.isBlank() || System.currentTimeMillis() > feedbackUntilMillis) {
+            return "";
+        }
+        return feedbackMessage;
+    }
+
+    private void drawCenteredStringWithBacking(GuiGraphics graphics, String text, int y, int color, int backgroundColor) {
+        int centerX = this.width / 2;
+        int textWidth = this.font.width(text);
+        int left = centerX - textWidth / 2 - 5;
+        int top = y - 2;
+        int right = centerX + textWidth / 2 + 5;
+        int bottom = y + this.font.lineHeight + 1;
+        graphics.fill(left, top, right, bottom, backgroundColor);
+        graphics.drawCenteredString(this.font, text, centerX, y, color);
     }
 
     private static RidingTweaksConfigManager manager() {

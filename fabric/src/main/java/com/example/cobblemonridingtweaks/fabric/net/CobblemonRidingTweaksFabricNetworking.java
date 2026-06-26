@@ -4,7 +4,6 @@ import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -18,6 +17,7 @@ public final class CobblemonRidingTweaksFabricNetworking {
     }
 
     public static void registerServerNetworking() {
+        PayloadTypeRegistry.playS2C().register(ConfigEditResultPayload.TYPE, ConfigEditResultPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ConfigSyncPayload.TYPE, ConfigSyncPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(ConfigUpdatePayload.TYPE, ConfigUpdatePayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(ConfigUpdatePayload.TYPE, (payload, context) ->
@@ -64,25 +64,28 @@ public final class CobblemonRidingTweaksFabricNetworking {
                     player.getGameProfile().getName(),
                     CobblemonRidingTweaks.MOD_NAME
             );
-            player.sendSystemMessage(Component.literal("You do not have permission to edit "
-                    + CobblemonRidingTweaks.MOD_NAME + " server config."));
+            sendEditResult(player, "You do not have permission to edit server config.", false);
             syncConfigTo(player);
             return;
         }
 
         if (!CobblemonRidingTweaks.configManager().replaceFromRemoteJson(payload.configJson())) {
-            player.sendSystemMessage(Component.literal("Rejected " + CobblemonRidingTweaks.MOD_NAME
-                    + " server config update. Check the server log for details."));
+            sendEditResult(player, "Rejected server config update. Check the server log for details.", false);
             syncConfigTo(player);
             return;
         }
 
         int syncedPlayers = syncConfigToAll(player.server);
-        player.sendSystemMessage(Component.literal("Saved " + CobblemonRidingTweaks.MOD_NAME
-                + " server config and synced " + syncedPlayers + " client(s)."));
+        sendEditResult(player, "Saved server config and synced " + syncedPlayers + " client(s).", true);
     }
 
     private static boolean canEditServerConfig(ServerPlayer player) {
         return player.hasPermissions(SERVER_CONFIG_EDIT_PERMISSION_LEVEL);
+    }
+
+    private static void sendEditResult(ServerPlayer player, String message, boolean success) {
+        if (ServerPlayNetworking.canSend(player, ConfigEditResultPayload.TYPE)) {
+            ServerPlayNetworking.send(player, new ConfigEditResultPayload(message, success));
+        }
     }
 }
