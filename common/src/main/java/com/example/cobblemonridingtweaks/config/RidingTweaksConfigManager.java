@@ -29,6 +29,7 @@ public final class RidingTweaksConfigManager {
     private RidingTweaksConfig localConfig;
     private RidingTweaksConfig activeConfig;
     private boolean serverConfigActive;
+    private boolean serverConfigEditable;
 
     private RidingTweaksConfigManager(Path path, RidingTweaksConfig config) {
         this.path = path;
@@ -58,6 +59,10 @@ public final class RidingTweaksConfigManager {
 
     public boolean isServerConfigActive() {
         return serverConfigActive;
+    }
+
+    public boolean canEditServerConfig() {
+        return serverConfigActive && serverConfigEditable;
     }
 
     public Path path() {
@@ -99,14 +104,16 @@ public final class RidingTweaksConfigManager {
     public void awaitServerConfig() {
         activeConfig = vanillaConfig();
         serverConfigActive = false;
+        serverConfigEditable = false;
     }
 
-    public void applyServerConfig(String json) {
+    public void applyServerConfig(String json, boolean editable) {
         RidingTweaksConfig serverConfig = fromJson(json);
         warnForInvalidNumbers(serverConfig);
         serverConfig.sanitize();
         activeConfig = serverConfig;
         serverConfigActive = true;
+        serverConfigEditable = editable;
         logDebugNotes(serverConfig);
         LOGGER.info("Applied server-authoritative {} config", CobblemonRidingTweaks.MOD_NAME);
     }
@@ -114,10 +121,25 @@ public final class RidingTweaksConfigManager {
     public void clearServerConfig() {
         activeConfig = localConfig;
         serverConfigActive = false;
+        serverConfigEditable = false;
     }
 
     public String localConfigJson() {
         return GSON.toJson(localConfig);
+    }
+
+    public String activeConfigJson() {
+        return GSON.toJson(activeConfig);
+    }
+
+    public boolean replaceFromRemoteJson(String json) {
+        RidingTweaksConfig config = submittedConfigFromJson(json);
+        if (config == null) {
+            return false;
+        }
+
+        replaceAndSave(config);
+        return true;
     }
 
     public double enduranceMultiplier(
@@ -271,6 +293,27 @@ public final class RidingTweaksConfigManager {
         } catch (JsonSyntaxException exception) {
             LOGGER.error("Failed to parse synced {} config; using vanilla behaviour", CobblemonRidingTweaks.MOD_NAME, exception);
             return vanillaConfig();
+        }
+    }
+
+    private static RidingTweaksConfig submittedConfigFromJson(String json) {
+        try {
+            String configVersion = readConfigVersion(json);
+            if (isNewerVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
+                LOGGER.warn(
+                        "Rejected submitted {} config version {}; this server supports up to {}",
+                        CobblemonRidingTweaks.MOD_NAME,
+                        configVersion,
+                        RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
+                );
+                return null;
+            }
+
+            RidingTweaksConfig config = GSON.fromJson(json, RidingTweaksConfig.class);
+            return config == null ? null : config;
+        } catch (JsonSyntaxException exception) {
+            LOGGER.warn("Rejected malformed submitted {} config", CobblemonRidingTweaks.MOD_NAME, exception);
+            return null;
         }
     }
 

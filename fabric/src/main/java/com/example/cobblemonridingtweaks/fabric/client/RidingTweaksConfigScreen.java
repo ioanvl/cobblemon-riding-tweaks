@@ -3,6 +3,8 @@ package com.example.cobblemonridingtweaks.fabric.client;
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.example.cobblemonridingtweaks.config.RidingTweaksConfig;
 import com.example.cobblemonridingtweaks.config.RidingTweaksConfigManager;
+import com.example.cobblemonridingtweaks.fabric.net.ConfigUpdatePayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -41,30 +43,30 @@ public final class RidingTweaksConfigScreen extends Screen {
         Button enabledButton = Button.builder(enabledText(), button -> {
             viewingConfig().enabled = !viewingConfig().enabled;
             button.setMessage(enabledText());
-            manager().save();
+            saveLocalChangesIfNeeded();
         }).bounds(centerX - 100, y, 200, 20).build();
-        enabledButton.active = selectedTab.isEditable();
+        enabledButton.active = selectedTabIsEditable();
         addRenderableWidget(enabledButton);
 
         Button debugButton = Button.builder(debugText(), button -> {
             viewingConfig().debugLogging = !viewingConfig().debugLogging;
             button.setMessage(debugText());
-            manager().save();
+            saveLocalChangesIfNeeded();
         }).bounds(centerX - 100, y + 24, 200, 20).build();
-        debugButton.active = selectedTab.isEditable();
+        debugButton.active = selectedTabIsEditable();
         addRenderableWidget(debugButton);
 
         Button reloadButton = Button.builder(Component.literal("Reload From File"), button -> {
             manager().reload();
             rebuildConfigButtons();
         }).bounds(centerX - 100, y + 56, 98, 20).build();
-        reloadButton.active = selectedTab.isEditable();
+        reloadButton.active = selectedTab == Tab.LOCAL;
         addRenderableWidget(reloadButton);
 
-        Button saveButton = Button.builder(Component.literal("Save"), button -> manager().save())
+        Button saveButton = Button.builder(Component.literal("Save"), button -> saveCurrentConfig())
                 .bounds(centerX + 2, y + 56, 98, 20)
                 .build();
-        saveButton.active = selectedTab.isEditable();
+        saveButton.active = selectedTabIsEditable();
         addRenderableWidget(saveButton);
 
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
@@ -113,6 +115,9 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private String statusText() {
         if (selectedTab == Tab.SERVER) {
+            if (manager().canEditServerConfig()) {
+                return "Server config is active. Your permissions allow editing and saving it.";
+            }
             return "Server config is active for this multiplayer session. This view is read-only.";
         }
         if (manager().isServerConfigActive()) {
@@ -136,24 +141,36 @@ public final class RidingTweaksConfigScreen extends Screen {
         return selectedTab == Tab.SERVER ? manager().config() : manager().localConfig();
     }
 
+    private boolean selectedTabIsEditable() {
+        return selectedTab == Tab.LOCAL || manager().canEditServerConfig();
+    }
+
+    private void saveCurrentConfig() {
+        if (selectedTab == Tab.SERVER) {
+            ClientPlayNetworking.send(new ConfigUpdatePayload(manager().activeConfigJson()));
+            return;
+        }
+        manager().save();
+    }
+
+    private void saveLocalChangesIfNeeded() {
+        if (selectedTab == Tab.LOCAL) {
+            manager().save();
+        }
+    }
+
     private static RidingTweaksConfigManager manager() {
         return CobblemonRidingTweaks.configManager();
     }
 
     private enum Tab {
-        LOCAL("Local", true),
-        SERVER("Server", false);
+        LOCAL("Local"),
+        SERVER("Server");
 
         private final String displayName;
-        private final boolean editable;
 
-        Tab(String displayName, boolean editable) {
+        Tab(String displayName) {
             this.displayName = displayName;
-            this.editable = editable;
-        }
-
-        private boolean isEditable() {
-            return editable;
         }
     }
 }

@@ -10,7 +10,8 @@ public final class CobblemonRidingTweaksFabricClient implements ClientModInitial
     @Override
     public void onInitializeClient() {
         ClientPlayNetworking.registerGlobalReceiver(ConfigSyncPayload.TYPE, (payload, context) ->
-                context.client().execute(() -> CobblemonRidingTweaks.configManager().applyServerConfig(payload.configJson()))
+                context.client().execute(() -> CobblemonRidingTweaks.configManager()
+                        .applyServerConfig(payload.configJson(), payload.canEditServerConfig()))
         );
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
