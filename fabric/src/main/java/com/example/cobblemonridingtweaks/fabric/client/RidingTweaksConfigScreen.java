@@ -21,14 +21,10 @@ import java.util.function.Supplier;
 public final class RidingTweaksConfigScreen extends Screen {
     private static final long FEEDBACK_VISIBLE_MILLIS = 5_000L;
     private static final int ROW_HEIGHT = 24;
-    private static final int FIRST_ROW_Y = 112;
-    private static final int LABEL_X_OFFSET = -220;
-    private static final int LABEL_WIDTH = 260;
-    private static final int VALUE_X_OFFSET = 64;
-    private static final int VALUE_WIDTH = 112;
-    private static final int EDITABLE_KEY_WIDTH = 252;
-    private static final int EDITABLE_VALUE_WIDTH = 92;
-    private static final int REMOVE_BUTTON_X_OFFSET = 162;
+    private static final int MIN_MARGIN = 8;
+    private static final int MAX_CONTENT_WIDTH = 920;
+    private static final int FIELD_GAP = 10;
+    private static final int REMOVE_BUTTON_WIDTH = 22;
     private static final List<String> RIDE_STYLE_KEYS = List.of("land", "liquid", "air");
     private static final List<String> BEHAVIOUR_KEYS = List.of(
             "bird",
@@ -70,33 +66,37 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (selectedTab == Tab.SERVER && !showServerTabs()) {
             selectedTab = Tab.LOCAL;
         }
-        scrollRow = Math.max(0, scrollRow);
         knownPickerScroll = Math.max(0, knownPickerScroll);
+        scrollRow = Math.clamp(scrollRow, 0, maxScrollRows());
 
         int centerX = this.width / 2;
-        int top = 54;
+        int contentLeft = contentLeft();
+        int contentWidth = contentWidth();
+        int top = tabsY();
         if (showServerTabs()) {
+            int tabGap = 8;
+            int tabWidth = Math.max(72, Math.min(120, (contentWidth - tabGap) / 2));
             addRenderableWidget(Button.builder(tabText(Tab.LOCAL), button -> {
                 selectedTab = Tab.LOCAL;
                 knownPickerOpen = false;
                 rebuild();
-            }).bounds(centerX - 104, top, 100, 20).build());
+            }).bounds(centerX - tabWidth - tabGap / 2, top, tabWidth, 20).build());
 
             addRenderableWidget(Button.builder(tabText(Tab.SERVER), button -> {
                 selectedTab = Tab.SERVER;
                 knownPickerOpen = false;
                 rebuild();
-            }).bounds(centerX + 4, top, 100, 20).build());
+            }).bounds(centerX + tabGap / 2, top, tabWidth, 20).build());
         }
 
-        int sectionY = showServerTabs() ? 80 : 62;
+        int sectionY = sectionY();
         addRenderableWidget(Button.builder(Component.literal("<"), button -> changeSection(-1))
-                .bounds(centerX - 152, sectionY, 28, 20)
+                .bounds(contentLeft, sectionY, 28, 20)
                 .build());
         addRenderableWidget(Button.builder(Component.literal(selectedSection.title), button -> {
-        }).bounds(centerX - 120, sectionY, 240, 20).build()).active = false;
+        }).bounds(contentLeft + 36, sectionY, Math.max(40, contentWidth - 72), 20).build()).active = false;
         addRenderableWidget(Button.builder(Component.literal(">"), button -> changeSection(1))
-                .bounds(centerX + 124, sectionY, 28, 20)
+                .bounds(contentLeft + contentWidth - 28, sectionY, 28, 20)
                 .build());
 
         switch (selectedSection) {
@@ -113,23 +113,24 @@ public final class RidingTweaksConfigScreen extends Screen {
             case SPEED_SPECIES -> addMapControls(viewingConfig().speed.speciesOverrides, List.of(), true);
         }
 
-        int bottomY = this.height - 76;
+        int bottomY = footerButtonsY();
+        int reloadWidth = Math.max(64, Math.min(120, (contentWidth - FIELD_GAP) / 3));
         Button reloadButton = Button.builder(Component.literal("Reload"), button -> {
             manager().reload();
             showFeedback("Reloaded local config.", true);
             rebuild();
-        }).bounds(centerX - 152, bottomY, 72, 20).build();
+        }).bounds(contentLeft, bottomY, reloadWidth, 20).build();
         reloadButton.active = selectedTab == Tab.LOCAL;
         addRenderableWidget(reloadButton);
 
         Button saveButton = Button.builder(Component.literal("Save"), button -> saveCurrentConfig())
-                .bounds(centerX - 76, bottomY, 148, 20)
+                .bounds(contentLeft + reloadWidth + FIELD_GAP, bottomY, contentWidth - reloadWidth - FIELD_GAP, 20)
                 .build();
         saveButton.active = selectedTabIsEditable();
         addRenderableWidget(saveButton);
 
         addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
-                .bounds(centerX - 152, bottomY + 24, 304, 20)
+                .bounds(contentLeft, bottomY + 24, contentWidth, 20)
                 .build());
 
         if (knownPickerOpen) {
@@ -144,20 +145,20 @@ public final class RidingTweaksConfigScreen extends Screen {
             drawKnownPickerBacking(graphics);
         }
         super.render(graphics, mouseX, mouseY, partialTick);
-        drawCenteredStringWithBacking(graphics, this.title.getString(), 24, 0xFFFFFF, 0x70000000);
-        drawCenteredStringWithBacking(graphics, configSummary(), 40, 0xD0D0D0, 0x70000000);
+        drawCenteredStringWithBacking(graphics, this.title.getString(), titleY(), 0xFFFFFF, 0x70000000);
+        drawCenteredStringWithBacking(graphics, configSummary(), summaryY(), 0xD0D0D0, 0x70000000);
         if (!knownPickerOpen) {
             labelLines.forEach(line -> graphics.drawString(this.font, line.text, line.x, line.y, line.color));
             drawMapScrollBar(graphics);
         }
-        drawCenteredStringWithBacking(graphics, statusText(), this.height - 30, 0xE0E0E0, 0x85000000);
+        drawCenteredStringWithBacking(graphics, statusText(), statusY(), 0xE0E0E0, 0x85000000);
 
         String feedback = feedbackText();
         if (!feedback.isBlank()) {
             drawCenteredStringWithBacking(
                     graphics,
                     feedback,
-                    this.height - 48,
+                    feedbackY(),
                     feedbackSuccess ? 0x80FF80 : 0xFF8080,
                     0xA0000000
             );
@@ -174,8 +175,8 @@ public final class RidingTweaksConfigScreen extends Screen {
             return true;
         }
 
-        if (selectedSection.mapSection) {
-            int maxScroll = Math.max(0, mapSizeForSection() - visibleRows());
+        int maxScroll = maxScrollRows();
+        if (maxScroll > 0) {
             scrollRow = Math.clamp(scrollRow - (int) Math.signum(verticalAmount), 0, maxScroll);
             rebuild();
             return true;
@@ -197,52 +198,79 @@ public final class RidingTweaksConfigScreen extends Screen {
     private void addGeneralControls() {
         RidingTweaksConfig config = viewingConfig();
         int centerX = this.width / 2;
-        int y = FIRST_ROW_Y;
-        addToggle("Config Enabled", config.enabled, value -> config.enabled = value, centerX, y);
-        addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, y + ROW_HEIGHT);
-        addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, y + ROW_HEIGHT * 2);
-        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, y + ROW_HEIGHT * 3);
-        addToggle(
-                "Stamina Level Scaling",
-                config.stamina.levelScalingEnabled,
-                value -> config.stamina.levelScalingEnabled = value,
-                centerX,
-                y + ROW_HEIGHT * 4
-        );
-        addLabel("Config Version", config.configVersion, centerX, y + ROW_HEIGHT * 5);
+        if (shouldShowRow(0)) {
+            addToggle("Config Enabled", config.enabled, value -> config.enabled = value, centerX, rowY(0));
+        }
+        if (shouldShowRow(1)) {
+            addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(1));
+        }
+        if (shouldShowRow(2)) {
+            addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(2));
+        }
+        if (shouldShowRow(3)) {
+            addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(3));
+        }
+        if (shouldShowRow(4)) {
+            addToggle(
+                    "Stamina Level Scaling",
+                    config.stamina.levelScalingEnabled,
+                    value -> config.stamina.levelScalingEnabled = value,
+                    centerX,
+                    rowY(4)
+            );
+        }
+        if (shouldShowRow(5)) {
+            addLabel("Config Version", config.configVersion, centerX, rowY(5));
+        }
     }
 
     private void addStaminaLevelControls() {
         RidingTweaksConfig.LevelScaling scaling = viewingConfig().stamina.levelScaling;
         int centerX = this.width / 2;
-        int y = FIRST_ROW_Y;
-        addIntField("Min Level", () -> scaling.minLevel, value -> scaling.minLevel = value, centerX, y);
-        addIntField("Max Level", () -> scaling.maxLevel, value -> scaling.maxLevel = value, centerX, y + ROW_HEIGHT);
-        addDoubleField("Min Multiplier", () -> scaling.minMultiplier, value -> scaling.minMultiplier = value, centerX, y + ROW_HEIGHT * 2);
-        addDoubleField("Max Multiplier", () -> scaling.maxMultiplier, value -> scaling.maxMultiplier = value, centerX, y + ROW_HEIGHT * 3);
-        addDoubleField(
-                "Default Label Multiplier",
-                () -> viewingConfig().stamina.defaultLabelMultiplier,
-                value -> viewingConfig().stamina.defaultLabelMultiplier = value,
-                centerX,
-                y + ROW_HEIGHT * 4
-        );
-        addDoubleField(
-                "Max Final Multiplier",
-                () -> viewingConfig().stamina.maxFinalMultiplier,
-                value -> viewingConfig().stamina.maxFinalMultiplier = value,
-                centerX,
-                y + ROW_HEIGHT * 5
-        );
+        if (shouldShowRow(0)) {
+            addIntField("Min Level", () -> scaling.minLevel, value -> scaling.minLevel = value, centerX, rowY(0));
+        }
+        if (shouldShowRow(1)) {
+            addIntField("Max Level", () -> scaling.maxLevel, value -> scaling.maxLevel = value, centerX, rowY(1));
+        }
+        if (shouldShowRow(2)) {
+            addDoubleField("Min Multiplier", () -> scaling.minMultiplier, value -> scaling.minMultiplier = value, centerX, rowY(2));
+        }
+        if (shouldShowRow(3)) {
+            addDoubleField("Max Multiplier", () -> scaling.maxMultiplier, value -> scaling.maxMultiplier = value, centerX, rowY(3));
+        }
+        if (shouldShowRow(4)) {
+            addDoubleField(
+                    "Default Label Multiplier",
+                    () -> viewingConfig().stamina.defaultLabelMultiplier,
+                    value -> viewingConfig().stamina.defaultLabelMultiplier = value,
+                    centerX,
+                    rowY(4)
+            );
+        }
+        if (shouldShowRow(5)) {
+            addDoubleField(
+                    "Max Final Multiplier",
+                    () -> viewingConfig().stamina.maxFinalMultiplier,
+                    value -> viewingConfig().stamina.maxFinalMultiplier = value,
+                    centerX,
+                    rowY(5)
+            );
+        }
     }
 
     private void addSpeedSettingsControls() {
         RidingTweaksConfig.SpeedTweaks speed = viewingConfig().speed;
         int centerX = this.width / 2;
-        int y = FIRST_ROW_Y;
-        addToggle("Speed Tweaks", speed.enabled, value -> speed.enabled = value, centerX, y);
-        addDoubleField("Default Label Multiplier", () -> speed.defaultLabelMultiplier, value -> speed.defaultLabelMultiplier = value, centerX, y + ROW_HEIGHT);
-        addDoubleField("Max Final Multiplier", () -> speed.maxFinalMultiplier, value -> speed.maxFinalMultiplier = value, centerX, y + ROW_HEIGHT * 2);
+        if (shouldShowRow(0)) {
+            addToggle("Speed Tweaks", speed.enabled, value -> speed.enabled = value, centerX, rowY(0));
+        }
+        if (shouldShowRow(1)) {
+            addDoubleField("Default Label Multiplier", () -> speed.defaultLabelMultiplier, value -> speed.defaultLabelMultiplier = value, centerX, rowY(1));
+        }
+        if (shouldShowRow(2)) {
+            addDoubleField("Max Final Multiplier", () -> speed.maxFinalMultiplier, value -> speed.maxFinalMultiplier = value, centerX, rowY(2));
+        }
     }
 
     private void addMapControls(Map<String, Double> multipliers, List<String> knownKeys, boolean editableKeys) {
@@ -252,7 +280,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         scrollRow = Math.clamp(scrollRow, 0, Math.max(0, entries.size() - visibleRows));
         int start = Math.min(scrollRow, entries.size());
         int end = Math.min(start + visibleRows, entries.size());
-        int y = FIRST_ROW_Y;
+        int y = rowsTop();
 
         for (int index = start; index < end; index++) {
             Map.Entry<String, Double> entry = entries.get(index);
@@ -264,13 +292,13 @@ public final class RidingTweaksConfigScreen extends Screen {
             y += ROW_HEIGHT;
         }
 
-        int buttonY = FIRST_ROW_Y + visibleRows * ROW_HEIGHT + 4;
+        int buttonY = rowsTop() + visibleRows * ROW_HEIGHT + 4;
         if (selectedSection.labelSection && !knownKeys.isEmpty()) {
             Button addKnownButton = Button.builder(Component.literal("Add Known"), button -> {
                 knownPickerOpen = true;
                 knownPickerScroll = 0;
                 rebuild();
-            }).bounds(centerX - 152, buttonY, 98, 20).build();
+            }).bounds(contentLeft(), buttonY, addButtonWidth(editableKeys), 20).build();
             addKnownButton.active = selectedTabIsEditable();
             addRenderableWidget(addKnownButton);
         }
@@ -279,7 +307,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             Button addCustomButton = Button.builder(Component.literal(customButtonText()), button -> {
                 addCustomKey(multipliers);
                 rebuild();
-            }).bounds(centerX - 50, buttonY, 98, 20).build();
+            }).bounds(addCustomButtonX(), buttonY, addButtonWidth(selectedSection.labelSection), 20).build();
             addCustomButton.active = selectedTabIsEditable();
             addRenderableWidget(addCustomButton);
         }
@@ -290,19 +318,19 @@ public final class RidingTweaksConfigScreen extends Screen {
             setter.accept(!currentValue);
             saveLocalChangesIfNeeded();
             rebuild();
-        }).bounds(centerX + VALUE_X_OFFSET, y, VALUE_WIDTH, 20).build();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
         addRenderableWidget(button);
-        addRowLabel(label, centerX + LABEL_X_OFFSET, y + 6);
+        addRowLabel(label, labelX(), y + 6);
     }
 
     private void addLabel(String label, String value, int centerX, int y) {
-        addRowLabel(label, centerX + LABEL_X_OFFSET, y + 6);
-        addRowLabel(value, centerX + VALUE_X_OFFSET, y + 6);
+        addRowLabel(label, labelX(), y + 6);
+        addRowLabel(value, valueX(), y + 6);
     }
 
     private void addIntField(String label, Supplier<Integer> getter, Consumer<Integer> setter, int centerX, int y) {
-        EditBox box = textBox(centerX + VALUE_X_OFFSET, y, VALUE_WIDTH, String.valueOf(getter.get()));
+        EditBox box = textBox(valueX(), y, valueWidth(), String.valueOf(getter.get()));
         box.setResponder(value -> {
             try {
                 setter.accept(Math.max(1, Integer.parseInt(value.trim())));
@@ -311,27 +339,27 @@ public final class RidingTweaksConfigScreen extends Screen {
             }
         });
         addRenderableWidget(box);
-        addRowLabel(label, centerX + LABEL_X_OFFSET, y + 6);
+        addRowLabel(label, labelX(), y + 6);
     }
 
     private void addDoubleField(String label, Supplier<Double> getter, Consumer<Double> setter, int centerX, int y) {
-        EditBox box = textBox(centerX + VALUE_X_OFFSET, y, VALUE_WIDTH, formatDouble(getter.get()));
+        EditBox box = textBox(valueX(), y, valueWidth(), formatDouble(getter.get()));
         box.setResponder(value -> parseMultiplier(label, value, setter));
         addRenderableWidget(box);
-        addRowLabel(label, centerX + LABEL_X_OFFSET, y + 6);
+        addRowLabel(label, labelX(), y + 6);
     }
 
     private void addMapValueRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
-        EditBox valueBox = textBox(centerX + VALUE_X_OFFSET, y, VALUE_WIDTH, formatDouble(value));
+        EditBox valueBox = textBox(valueX(), y, valueWidth(), formatDouble(value));
         valueBox.setResponder(text -> parseMultiplier(key, text, parsed -> multipliers.put(key, parsed)));
         addRenderableWidget(valueBox);
-        addRowLabel(key, centerX + LABEL_X_OFFSET, y + 6);
+        addRowLabel(key, labelX(), y + 6);
     }
 
     private void addEditableMapRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
         String[] currentKey = { key };
         double[] currentValue = { value };
-        EditBox keyBox = textBox(centerX + LABEL_X_OFFSET, y, EDITABLE_KEY_WIDTH, key);
+        EditBox keyBox = textBox(editableKeyX(), y, editableKeyWidth(), key);
         keyBox.setMaxLength(128);
         keyBox.setResponder(text -> {
             String normalized = normalizeKey(text);
@@ -348,7 +376,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         });
         addRenderableWidget(keyBox);
 
-        EditBox valueBox = textBox(centerX + VALUE_X_OFFSET, y, EDITABLE_VALUE_WIDTH, formatDouble(value));
+        EditBox valueBox = textBox(editableValueX(), y, editableValueWidth(), formatDouble(value));
         valueBox.setResponder(text -> parseMultiplier(currentKey[0], text, parsed -> {
             currentValue[0] = parsed;
             multipliers.put(currentKey[0], parsed);
@@ -359,7 +387,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             multipliers.remove(currentKey[0]);
             scrollRow = Math.max(0, scrollRow - 1);
             rebuild();
-        }).bounds(centerX + REMOVE_BUTTON_X_OFFSET, y, 22, 20).build();
+        }).bounds(removeButtonX(), y, REMOVE_BUTTON_WIDTH, 20).build();
         removeButton.active = selectedTabIsEditable();
         addRenderableWidget(removeButton);
     }
@@ -401,13 +429,6 @@ public final class RidingTweaksConfigScreen extends Screen {
         return selectedSection.speciesSection ? "Add Species" : "Add Custom";
     }
 
-    private int mapSizeForSection() {
-        if (!selectedSection.mapSection) {
-            return 0;
-        }
-        return currentMap().size();
-    }
-
     private Map<String, Double> currentMap() {
         return switch (selectedSection) {
             case STAMINA_RIDE_STYLES -> viewingConfig().stamina.rideStyleMultipliers;
@@ -423,7 +444,129 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private int visibleRows() {
-        return Math.max(3, (this.height - FIRST_ROW_Y - 110) / ROW_HEIGHT);
+        int reservedForAddButtons = selectedSection.mapSection && (selectedSection.labelSection || selectedSection.speciesSection)
+                ? 28
+                : 0;
+        return Math.max(1, (rowViewportBottom() - rowsTop() - reservedForAddButtons) / ROW_HEIGHT);
+    }
+
+    private int rowCountForSection() {
+        return switch (selectedSection) {
+            case GENERAL -> 6;
+            case STAMINA_LEVEL -> 6;
+            case SPEED_SETTINGS -> 3;
+            case STAMINA_RIDE_STYLES, STAMINA_BEHAVIOURS, STAMINA_LABELS, STAMINA_SPECIES,
+                    SPEED_RIDE_STYLES, SPEED_BEHAVIOURS, SPEED_LABELS, SPEED_SPECIES -> currentMap().size();
+        };
+    }
+
+    private int maxScrollRows() {
+        return Math.max(0, rowCountForSection() - visibleRows());
+    }
+
+    private boolean shouldShowRow(int rowIndex) {
+        return rowIndex >= scrollRow && rowIndex < scrollRow + visibleRows();
+    }
+
+    private int rowY(int rowIndex) {
+        return rowsTop() + (rowIndex - scrollRow) * ROW_HEIGHT;
+    }
+
+    private int titleY() {
+        return this.height < 260 ? 12 : 24;
+    }
+
+    private int summaryY() {
+        return titleY() + 16;
+    }
+
+    private int tabsY() {
+        return summaryY() + 18;
+    }
+
+    private int sectionY() {
+        return showServerTabs() ? tabsY() + 24 : summaryY() + 24;
+    }
+
+    private int rowsTop() {
+        return sectionY() + 34;
+    }
+
+    private int footerButtonsY() {
+        return Math.max(0, this.height - 52);
+    }
+
+    private int statusY() {
+        return Math.max(rowsTop() + 4, footerButtonsY() - 16);
+    }
+
+    private int feedbackY() {
+        return Math.max(rowsTop() + 4, statusY() - 16);
+    }
+
+    private int rowViewportBottom() {
+        return Math.max(rowsTop() + ROW_HEIGHT, statusY() - 4);
+    }
+
+    private int margin() {
+        return Math.max(MIN_MARGIN, Math.min(24, this.width / 24));
+    }
+
+    private int contentWidth() {
+        int availableWidth = Math.max(80, this.width - margin() * 2);
+        return Math.min(MAX_CONTENT_WIDTH, availableWidth);
+    }
+
+    private int contentLeft() {
+        return (this.width - contentWidth()) / 2;
+    }
+
+    private int contentRight() {
+        return contentLeft() + contentWidth();
+    }
+
+    private int valueWidth() {
+        return Math.max(70, Math.min(180, contentWidth() / 4));
+    }
+
+    private int labelX() {
+        return contentLeft();
+    }
+
+    private int labelWidth() {
+        return Math.max(40, valueX() - labelX() - FIELD_GAP);
+    }
+
+    private int valueX() {
+        return contentRight() - valueWidth();
+    }
+
+    private int editableKeyX() {
+        return contentLeft();
+    }
+
+    private int editableValueWidth() {
+        return Math.max(64, Math.min(120, contentWidth() / 5));
+    }
+
+    private int editableValueX() {
+        return contentRight() - REMOVE_BUTTON_WIDTH - FIELD_GAP - editableValueWidth();
+    }
+
+    private int editableKeyWidth() {
+        return Math.max(60, editableValueX() - editableKeyX() - FIELD_GAP);
+    }
+
+    private int removeButtonX() {
+        return contentRight() - REMOVE_BUTTON_WIDTH;
+    }
+
+    private int addButtonWidth(boolean splitButtons) {
+        return splitButtons ? Math.max(64, (contentWidth() - FIELD_GAP) / 2) : contentWidth();
+    }
+
+    private int addCustomButtonX() {
+        return selectedSection.labelSection ? contentLeft() + addButtonWidth(true) + FIELD_GAP : contentLeft();
     }
 
     private void changeSection(int direction) {
@@ -438,18 +581,18 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private void addKnownPickerControls() {
         List<String> missing = missingKnownKeys(currentMap(), RidingTweaksConfig.knownCobblemonLabels());
-        int centerX = this.width / 2;
-        int left = centerX - 120;
+        int pickerWidth = knownPickerWidth();
+        int left = (this.width - pickerWidth) / 2;
         int top = knownPickerTop();
         int rows = Math.min(knownPickerRows(), missing.size());
         knownPickerScroll = Math.clamp(knownPickerScroll, 0, Math.max(0, missing.size() - rows));
 
         addRenderableWidget(Button.builder(Component.literal("Known Labels"), button -> {
-        }).bounds(left, top, 240, 20).build()).active = false;
+        }).bounds(left, top, pickerWidth, 20).build()).active = false;
 
         if (missing.isEmpty()) {
             addRenderableWidget(Button.builder(Component.literal("All known labels are listed"), button -> {
-            }).bounds(left, top + 24, 240, 20).build()).active = false;
+            }).bounds(left, top + 24, pickerWidth, 20).build()).active = false;
         } else {
             for (int row = 0; row < rows; row++) {
                 String key = missing.get(knownPickerScroll + row);
@@ -459,7 +602,7 @@ public final class RidingTweaksConfigScreen extends Screen {
                     scrollRow = Math.max(0, currentMap().size() - visibleRows());
                     saveLocalChangesIfNeeded();
                     rebuild();
-                }).bounds(left, top + 24 + row * ROW_HEIGHT, 240, 20).build()).active = selectedTabIsEditable();
+                }).bounds(left, top + 24 + row * ROW_HEIGHT, pickerWidth, 20).build()).active = selectedTabIsEditable();
             }
         }
 
@@ -467,7 +610,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("Cancel"), button -> {
             knownPickerOpen = false;
             rebuild();
-        }).bounds(left, closeY, 240, 20).build());
+        }).bounds(left, closeY, pickerWidth, 20).build());
     }
 
     private List<String> missingKnownKeys(Map<String, Double> multipliers, List<String> knownKeys) {
@@ -478,38 +621,42 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private int knownPickerRows() {
-        return Math.max(4, Math.min(10, (this.height - knownPickerTop() - 82) / ROW_HEIGHT));
+        int availableRows = (footerButtonsY() - knownPickerTop() - 72) / ROW_HEIGHT;
+        return Math.max(1, Math.min(10, availableRows));
     }
 
     private int knownPickerTop() {
-        return Math.max(104, this.height / 2 - 138);
+        return Math.max(rowsTop(), Math.min(this.height / 2 - 138, footerButtonsY() - 40));
+    }
+
+    private int knownPickerWidth() {
+        return Math.min(260, contentWidth());
     }
 
     private void drawKnownPickerBacking(GuiGraphics graphics) {
-        int centerX = this.width / 2;
-        int left = centerX - 128;
+        int pickerWidth = knownPickerWidth();
+        int left = (this.width - pickerWidth) / 2 - 8;
         int top = knownPickerTop() - 8;
-        int right = centerX + 128;
+        int right = left + pickerWidth + 16;
         int bottom = top + 68 + knownPickerRows() * ROW_HEIGHT;
         graphics.fill(left, top, right, bottom, 0xD0000000);
         graphics.fill(left + 2, top + 2, right - 2, bottom - 2, 0xE0202020);
     }
 
     private void drawMapScrollBar(GuiGraphics graphics) {
-        if (!selectedSection.mapSection || knownPickerOpen) {
+        if (knownPickerOpen) {
             return;
         }
 
-        int totalRows = mapSizeForSection();
+        int totalRows = rowCountForSection();
         int visibleRows = visibleRows();
         if (totalRows <= visibleRows) {
             return;
         }
 
-        int centerX = this.width / 2;
-        int trackX = centerX + 188;
-        int trackTop = FIRST_ROW_Y;
-        int trackHeight = visibleRows * ROW_HEIGHT - 4;
+        int trackX = Math.min(this.width - 6, contentRight() + 4);
+        int trackTop = rowsTop();
+        int trackHeight = Math.max(1, visibleRows * ROW_HEIGHT - 4);
         int handleHeight = Math.max(18, trackHeight * visibleRows / totalRows);
         int maxScroll = totalRows - visibleRows;
         int handleY = trackTop + (trackHeight - handleHeight) * scrollRow / maxScroll;
@@ -590,7 +737,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addRowLabel(String text, int x, int y) {
-        labelLines.add(new LabelLine(fitText(text, LABEL_WIDTH), x, y, 0xD8D8D8));
+        labelLines.add(new LabelLine(fitText(text, labelWidth()), x, y, 0xD8D8D8));
     }
 
     private void drawCenteredStringWithBacking(GuiGraphics graphics, String rawText, int y, int color, int backgroundColor) {
