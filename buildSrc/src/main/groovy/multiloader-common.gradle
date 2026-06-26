@@ -46,6 +46,10 @@ repositories {
         name = 'Modrinth'
         url = 'https://api.modrinth.com/maven'
     }
+    maven {
+        name = 'Terraformers'
+        url = 'https://maven.terraformersmc.com/'
+    }
 }
 
 // Declare capabilities on the outgoing configurations.

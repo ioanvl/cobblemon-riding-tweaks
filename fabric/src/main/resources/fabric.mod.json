@@ -12,6 +12,12 @@
   "entrypoints": {
     "main": [
       "com.example.cobblemonridingtweaks.fabric.CobblemonRidingTweaksFabric"
+    ],
+    "client": [
+      "com.example.cobblemonridingtweaks.fabric.client.CobblemonRidingTweaksFabricClient"
+    ],
+    "modmenu": [
+      "com.example.cobblemonridingtweaks.fabric.client.CobblemonRidingTweaksModMenu"
     ]
   },
   "mixins": [
