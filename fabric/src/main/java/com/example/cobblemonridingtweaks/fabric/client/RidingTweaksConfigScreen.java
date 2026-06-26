@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public final class RidingTweaksConfigScreen extends Screen {
-    private static final long FEEDBACK_VISIBLE_MILLIS = 5_000L;
+    private static final long FEEDBACK_VISIBLE_MILLIS = 2_500L;
     private static final int ROW_HEIGHT = 24;
     private static final int MIN_MARGIN = 8;
     private static final int MAX_CONTENT_WIDTH = 920;
@@ -54,6 +54,8 @@ public final class RidingTweaksConfigScreen extends Screen {
     private int scrollRow;
     private boolean knownPickerOpen;
     private int knownPickerScroll;
+    private RidingTweaksConfig localDraft;
+    private RidingTweaksConfig serverDraft;
 
     public RidingTweaksConfigScreen(Screen parent) {
         super(Component.literal(CobblemonRidingTweaks.MOD_NAME));
@@ -63,6 +65,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     @Override
     protected void init() {
         labelLines.clear();
+        ensureDrafts();
         if (selectedTab == Tab.SERVER && !showServerTabs()) {
             selectedTab = Tab.LOCAL;
         }
@@ -117,6 +120,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         int reloadWidth = Math.max(64, Math.min(120, (contentWidth - FIELD_GAP) / 3));
         Button reloadButton = Button.builder(Component.literal("Reload"), button -> {
             manager().reload();
+            localDraft = manager().copyLocalConfig();
             showFeedback("Reloaded local config.", true);
             rebuild();
         }).bounds(contentLeft, bottomY, reloadWidth, 20).build();
@@ -151,7 +155,10 @@ public final class RidingTweaksConfigScreen extends Screen {
             labelLines.forEach(line -> graphics.drawString(this.font, line.text, line.x, line.y, line.color));
             drawMapScrollBar(graphics);
         }
-        drawCenteredStringWithBacking(graphics, statusText(), statusY(), 0xE0E0E0, 0x85000000);
+        String status = statusText();
+        if (!status.isBlank()) {
+            drawCenteredStringWithBacking(graphics, status, statusY(), 0xE0E0E0, 0x85000000);
+        }
 
         String feedback = feedbackText();
         if (!feedback.isBlank()) {
@@ -325,7 +332,6 @@ public final class RidingTweaksConfigScreen extends Screen {
     private void addToggle(String label, boolean currentValue, Consumer<Boolean> setter, int centerX, int y) {
         Button button = Button.builder(Component.literal(onOff(currentValue)), pressed -> {
             setter.accept(!currentValue);
-            saveLocalChangesIfNeeded();
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
@@ -609,7 +615,6 @@ public final class RidingTweaksConfigScreen extends Screen {
                     currentMap().put(key, 1.0D);
                     knownPickerOpen = false;
                     scrollRow = Math.max(0, currentMap().size() - visibleRows());
-                    saveLocalChangesIfNeeded();
                     rebuild();
                 }).bounds(left, top + 24 + row * ROW_HEIGHT, pickerWidth, 20).build()).active = selectedTabIsEditable();
             }
@@ -641,7 +646,6 @@ public final class RidingTweaksConfigScreen extends Screen {
                     currentMap().put(key, 1.0D);
                     knownPickerOpen = false;
                     scrollRow = Math.max(0, currentMap().size() - visibleRows());
-                    saveLocalChangesIfNeeded();
                     rebuild();
                     return;
                 }
@@ -735,7 +739,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             return "Server config. Read-only for this player.";
         }
         if (isSingleplayerSession()) {
-            return "Local config. Used by this singleplayer world.";
+            return "";
         }
         if (manager().isServerConfigActive()) {
             return "Local config. Stored locally; server values are active.";
@@ -755,7 +759,8 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private RidingTweaksConfig viewingConfig() {
-        return selectedTab == Tab.SERVER ? manager().config() : manager().localConfig();
+        ensureDrafts();
+        return selectedTab == Tab.SERVER ? serverDraft : localDraft;
     }
 
     private boolean selectedTabIsEditable() {
@@ -763,21 +768,24 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void saveCurrentConfig() {
-        viewingConfig().sanitize();
+        RidingTweaksConfig draft = viewingConfig().sanitize();
         if (selectedTab == Tab.SERVER) {
             showFeedback("Saving server config...", true);
-            ClientPlayNetworking.send(new ConfigUpdatePayload(manager().activeConfigJson()));
+            ClientPlayNetworking.send(new ConfigUpdatePayload(manager().toJson(draft)));
             return;
         }
-        manager().save();
-        showFeedback("Saved local config.", true);
+        manager().replaceAndSave(draft);
+        localDraft = manager().copyLocalConfig();
+        showFeedback("Saved and reloaded local config.", true);
         rebuild();
     }
 
-    private void saveLocalChangesIfNeeded() {
-        if (selectedTab == Tab.LOCAL) {
-            manager().save();
-            showFeedback("Saved local config.", true);
+    private void ensureDrafts() {
+        if (localDraft == null) {
+            localDraft = manager().copyLocalConfig();
+        }
+        if (serverDraft == null) {
+            serverDraft = manager().copyActiveConfig();
         }
     }
 

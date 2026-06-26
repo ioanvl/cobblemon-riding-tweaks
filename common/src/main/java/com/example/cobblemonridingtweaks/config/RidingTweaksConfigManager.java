@@ -77,7 +77,7 @@ public final class RidingTweaksConfigManager {
     public void replaceAndSave(RidingTweaksConfig config) {
         warnForInvalidNumbers(config);
         this.localConfig = config.sanitize();
-        if (!serverConfigActive) {
+        if (!serverConfigActive && !awaitingServerConfig) {
             this.activeConfig = this.localConfig;
         }
         logDebugNotes(this.localConfig);
@@ -88,7 +88,7 @@ public final class RidingTweaksConfigManager {
         localConfig = read(path);
         warnForInvalidNumbers(localConfig);
         localConfig.sanitize();
-        if (!serverConfigActive) {
+        if (!serverConfigActive && !awaitingServerConfig) {
             activeConfig = localConfig;
         }
         logDebugNotes(localConfig);
@@ -138,6 +138,18 @@ public final class RidingTweaksConfigManager {
 
     public String activeConfigJson() {
         return GSON.toJson(activeConfig);
+    }
+
+    public String toJson(RidingTweaksConfig config) {
+        return GSON.toJson(config);
+    }
+
+    public RidingTweaksConfig copyLocalConfig() {
+        return copyConfig(localConfig);
+    }
+
+    public RidingTweaksConfig copyActiveConfig() {
+        return copyConfig(activeConfig);
     }
 
     public boolean replaceFromRemoteJson(String json) {
@@ -375,6 +387,11 @@ public final class RidingTweaksConfigManager {
         RidingTweaksConfig config = new RidingTweaksConfig();
         config.enabled = false;
         return config.sanitize();
+    }
+
+    private static RidingTweaksConfig copyConfig(RidingTweaksConfig config) {
+        RidingTweaksConfig copy = GSON.fromJson(GSON.toJson(config), RidingTweaksConfig.class);
+        return copy == null ? new RidingTweaksConfig().sanitize() : copy.sanitize();
     }
 
     private static void warnForInvalidNumbers(RidingTweaksConfig config) {
