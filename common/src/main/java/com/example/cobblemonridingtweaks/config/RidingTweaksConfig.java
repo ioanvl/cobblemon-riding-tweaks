@@ -1,9 +1,9 @@
 package com.example.cobblemonridingtweaks.config;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 public final class RidingTweaksConfig {
     public static final String SUPPORTED_CONFIG_VERSION = "1.0.0";
@@ -106,8 +106,8 @@ public final class RidingTweaksConfig {
         return label != null && knownCobblemonLabels().contains(normalizeKey(label));
     }
 
-    private static Set<String> knownCobblemonLabels() {
-        return Set.of(
+    public static List<String> knownCobblemonLabels() {
+        return List.of(
                 "legendary",
                 "restricted",
                 "mythical",
