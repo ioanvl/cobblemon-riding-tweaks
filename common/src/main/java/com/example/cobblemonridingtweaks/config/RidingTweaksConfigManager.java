@@ -30,6 +30,7 @@ public final class RidingTweaksConfigManager {
     private RidingTweaksConfig activeConfig;
     private boolean serverConfigActive;
     private boolean serverConfigEditable;
+    private boolean awaitingServerConfig;
 
     private RidingTweaksConfigManager(Path path, RidingTweaksConfig config) {
         this.path = path;
@@ -59,6 +60,10 @@ public final class RidingTweaksConfigManager {
 
     public boolean isServerConfigActive() {
         return serverConfigActive;
+    }
+
+    public boolean isAwaitingServerConfig() {
+        return awaitingServerConfig;
     }
 
     public boolean canEditServerConfig() {
@@ -105,6 +110,7 @@ public final class RidingTweaksConfigManager {
         activeConfig = vanillaConfig();
         serverConfigActive = false;
         serverConfigEditable = false;
+        awaitingServerConfig = true;
     }
 
     public void applyServerConfig(String json, boolean editable) {
@@ -114,6 +120,7 @@ public final class RidingTweaksConfigManager {
         activeConfig = serverConfig;
         serverConfigActive = true;
         serverConfigEditable = editable;
+        awaitingServerConfig = false;
         logDebugNotes(serverConfig);
         LOGGER.info("Applied server-authoritative {} config", CobblemonRidingTweaks.MOD_NAME);
     }
@@ -122,6 +129,7 @@ public final class RidingTweaksConfigManager {
         activeConfig = localConfig;
         serverConfigActive = false;
         serverConfigEditable = false;
+        awaitingServerConfig = false;
     }
 
     public String localConfigJson() {

@@ -185,6 +185,15 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (knownPickerOpen) {
+            handleKnownPickerClick(mouseX, mouseY, button);
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
     public void onClose() {
         this.minecraft.setScreen(parent);
     }
@@ -613,6 +622,43 @@ public final class RidingTweaksConfigScreen extends Screen {
         }).bounds(left, closeY, pickerWidth, 20).build());
     }
 
+    private void handleKnownPickerClick(double mouseX, double mouseY, int button) {
+        if (button != 0) {
+            return;
+        }
+
+        List<String> missing = missingKnownKeys(currentMap(), RidingTweaksConfig.knownCobblemonLabels());
+        int pickerWidth = knownPickerWidth();
+        int left = (this.width - pickerWidth) / 2;
+        int top = knownPickerTop();
+        int rows = Math.min(knownPickerRows(), missing.size());
+
+        if (selectedTabIsEditable()) {
+            for (int row = 0; row < rows; row++) {
+                int rowY = top + 24 + row * ROW_HEIGHT;
+                if (isWithin(mouseX, mouseY, left, rowY, pickerWidth, 20)) {
+                    String key = missing.get(knownPickerScroll + row);
+                    currentMap().put(key, 1.0D);
+                    knownPickerOpen = false;
+                    scrollRow = Math.max(0, currentMap().size() - visibleRows());
+                    saveLocalChangesIfNeeded();
+                    rebuild();
+                    return;
+                }
+            }
+        }
+
+        int closeY = top + 28 + knownPickerRows() * ROW_HEIGHT;
+        if (isWithin(mouseX, mouseY, left, closeY, pickerWidth, 20)) {
+            knownPickerOpen = false;
+            rebuild();
+        }
+    }
+
+    private static boolean isWithin(double mouseX, double mouseY, int x, int y, int width, int height) {
+        return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+    }
+
     private List<String> missingKnownKeys(Map<String, Double> multipliers, List<String> knownKeys) {
         return knownKeys.stream()
                 .map(RidingTweaksConfigScreen::normalizeKey)
@@ -688,8 +734,14 @@ public final class RidingTweaksConfigScreen extends Screen {
             }
             return "Server config. Read-only for this player.";
         }
+        if (isSingleplayerSession()) {
+            return "Local config. Used by this singleplayer world.";
+        }
         if (manager().isServerConfigActive()) {
-            return "Local config. Used for singleplayer or servers without sync.";
+            return "Local config. Stored locally; server values are active.";
+        }
+        if (manager().isAwaitingServerConfig()) {
+            return "No server sync. Neutral x1 multipliers are active on this server.";
         }
         return fitText(manager().path().toString(), this.width - 40);
     }
