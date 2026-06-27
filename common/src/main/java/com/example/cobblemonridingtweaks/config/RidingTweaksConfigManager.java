@@ -75,9 +75,20 @@ public final class RidingTweaksConfigManager {
     }
 
     public void replaceAndSave(RidingTweaksConfig config) {
+        replaceAndSave(config, false);
+    }
+
+    public void replaceAndSaveActiveLocal(RidingTweaksConfig config) {
+        replaceAndSave(config, true);
+    }
+
+    private void replaceAndSave(RidingTweaksConfig config, boolean forceActiveLocal) {
         warnForInvalidNumbers(config);
         this.localConfig = config.sanitize();
-        if (!serverConfigActive && !awaitingServerConfig) {
+        if (forceActiveLocal) {
+            clearServerConfigState();
+            this.activeConfig = this.localConfig;
+        } else if (!serverConfigActive && !awaitingServerConfig) {
             this.activeConfig = this.localConfig;
         }
         logDebugNotes(this.localConfig);
@@ -85,10 +96,21 @@ public final class RidingTweaksConfigManager {
     }
 
     public void reload() {
+        reload(false);
+    }
+
+    public void reloadActiveLocal() {
+        reload(true);
+    }
+
+    private void reload(boolean forceActiveLocal) {
         localConfig = read(path);
         warnForInvalidNumbers(localConfig);
         localConfig.sanitize();
-        if (!serverConfigActive && !awaitingServerConfig) {
+        if (forceActiveLocal) {
+            clearServerConfigState();
+            activeConfig = localConfig;
+        } else if (!serverConfigActive && !awaitingServerConfig) {
             activeConfig = localConfig;
         }
         logDebugNotes(localConfig);
@@ -127,6 +149,10 @@ public final class RidingTweaksConfigManager {
 
     public void clearServerConfig() {
         activeConfig = localConfig;
+        clearServerConfigState();
+    }
+
+    private void clearServerConfigState() {
         serverConfigActive = false;
         serverConfigEditable = false;
         awaitingServerConfig = false;
@@ -173,15 +199,15 @@ public final class RidingTweaksConfigManager {
             return 1.0D;
         }
 
-        double multiplier = staminaLevelMultiplier(level)
-                * keyedMultiplier(activeConfig.stamina.rideStyleMultipliers, rideStyle)
-                * keyedMultiplier(activeConfig.stamina.behaviourMultipliers, behaviour)
+        double multiplier = levelMultiplier(activeConfig.stamina, level)
+                * ridingMultiplier(activeConfig.stamina, rideStyle, behaviour)
                 * speciesOrLabelMultiplier(activeConfig.stamina, labels, speciesId);
 
         return Math.clamp(multiplier, 0.01D, activeConfig.stamina.maxFinalMultiplier);
     }
 
     public double speedMultiplier(
+            int level,
             Collection<String> labels,
             String speciesId,
             String rideStyle,
@@ -191,8 +217,8 @@ public final class RidingTweaksConfigManager {
             return 1.0D;
         }
 
-        double multiplier = keyedMultiplier(activeConfig.speed.rideStyleMultipliers, rideStyle)
-                * keyedMultiplier(activeConfig.speed.behaviourMultipliers, behaviour)
+        double multiplier = levelMultiplier(activeConfig.speed, level)
+                * ridingMultiplier(activeConfig.speed, rideStyle, behaviour)
                 * speciesOrLabelMultiplier(activeConfig.speed, labels, speciesId);
 
         return Math.clamp(multiplier, 0.01D, activeConfig.speed.maxFinalMultiplier);
@@ -209,12 +235,12 @@ public final class RidingTweaksConfigManager {
         return (float) (originalDrain / enduranceMultiplier(level, labels, speciesId, rideStyle, behaviour));
     }
 
-    private double staminaLevelMultiplier(int level) {
-        if (!activeConfig.stamina.levelScalingEnabled) {
+    private double levelMultiplier(RidingTweaksConfig.FeatureTweaks feature, int level) {
+        if (!feature.levelScalingEnabled) {
             return 1.0D;
         }
 
-        RidingTweaksConfig.LevelScaling scaling = activeConfig.stamina.levelScaling;
+        RidingTweaksConfig.LevelScaling scaling = feature.levelScaling;
         if (scaling.minLevel == scaling.maxLevel) {
             return level >= scaling.maxLevel ? scaling.maxMultiplier : scaling.minMultiplier;
         }
@@ -232,9 +258,15 @@ public final class RidingTweaksConfigManager {
             Collection<String> labels,
             String speciesId
     ) {
-        Double speciesMultiplier = speciesMultiplier(feature, speciesId);
-        if (speciesMultiplier != null) {
-            return speciesMultiplier;
+        if (feature.speciesOverridesEnabled) {
+            Double speciesMultiplier = speciesMultiplier(feature, speciesId);
+            if (speciesMultiplier != null) {
+                return speciesMultiplier;
+            }
+        }
+
+        if (!feature.labelMultipliersEnabled) {
+            return 1.0D;
         }
 
         double labelMultiplier = feature.defaultLabelMultiplier;
@@ -244,6 +276,14 @@ public final class RidingTweaksConfigManager {
             }
         }
         return labelMultiplier;
+    }
+
+    private double ridingMultiplier(RidingTweaksConfig.FeatureTweaks feature, String rideStyle, String behaviour) {
+        if (!feature.ridingMultipliersEnabled) {
+            return 1.0D;
+        }
+        return keyedMultiplier(feature.rideStyleMultipliers, rideStyle)
+                * keyedMultiplier(feature.behaviourMultipliers, behaviour);
     }
 
     private Double speciesMultiplier(RidingTweaksConfig.FeatureTweaks feature, String speciesId) {
@@ -400,11 +440,16 @@ public final class RidingTweaksConfigManager {
         }
         warnForInvalidNumbers("stamina", config.stamina);
         warnForInvalidNumbers("speed", config.speed);
-        if (config.stamina != null) {
-            RidingTweaksConfig.LevelScaling scaling = config.stamina.levelScaling;
+        warnForInvalidLevelScaling("stamina", config.stamina);
+        warnForInvalidLevelScaling("speed", config.speed);
+    }
+
+    private static void warnForInvalidLevelScaling(String section, RidingTweaksConfig.FeatureTweaks feature) {
+        if (feature != null) {
+            RidingTweaksConfig.LevelScaling scaling = feature.levelScaling;
             if (scaling != null) {
-                warnIfInvalid("stamina.levelScaling.minMultiplier", scaling.minMultiplier);
-                warnIfInvalid("stamina.levelScaling.maxMultiplier", scaling.maxMultiplier);
+                warnIfInvalid(section + ".levelScaling.minMultiplier", scaling.minMultiplier);
+                warnIfInvalid(section + ".levelScaling.maxMultiplier", scaling.maxMultiplier);
             }
         }
     }

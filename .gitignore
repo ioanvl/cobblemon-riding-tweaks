@@ -24,3 +24,16 @@ bin/
 *.log
 hs_err_pid*
 replay_pid*
+
+# Memory
+AGENTS.md
+CLAUDE.md
+
+docs/ai/
+
+.agents/
+.claude/
+.cursor/
+.continue/
+
+.github/copilot-instructions.md

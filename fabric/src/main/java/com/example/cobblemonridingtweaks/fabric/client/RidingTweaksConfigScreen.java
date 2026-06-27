@@ -26,22 +26,10 @@ public final class RidingTweaksConfigScreen extends Screen {
     private static final int FIELD_GAP = 10;
     private static final int REMOVE_BUTTON_WIDTH = 22;
     private static final List<String> RIDE_STYLE_KEYS = List.of("land", "liquid", "air");
-    private static final List<String> BEHAVIOUR_KEYS = List.of(
-            "bird",
-            "boat",
-            "burst",
-            "composite",
-            "dolphin",
-            "glider",
-            "helicopter",
-            "horse",
-            "hover",
-            "jet",
-            "minekart",
-            "rocket",
-            "submarine",
-            "vehicle"
-    );
+    private static final List<String> LAND_BEHAVIOUR_KEYS = List.of("horse", "minekart", "vehicle");
+    private static final List<String> AIR_BEHAVIOUR_KEYS = List.of("bird", "glider", "helicopter", "hover", "jet", "rocket");
+    private static final List<String> LIQUID_BEHAVIOUR_KEYS = List.of("boat", "burst", "dolphin", "submarine");
+    private static final List<String> OTHER_BEHAVIOUR_KEYS = List.of("composite");
 
     private static String feedbackMessage = "";
     private static boolean feedbackSuccess = true;
@@ -104,22 +92,24 @@ public final class RidingTweaksConfigScreen extends Screen {
 
         switch (selectedSection) {
             case GENERAL -> addGeneralControls();
-            case STAMINA_LEVEL -> addStaminaLevelControls();
-            case STAMINA_RIDE_STYLES -> addMapControls(viewingConfig().stamina.rideStyleMultipliers, RIDE_STYLE_KEYS, false);
-            case STAMINA_BEHAVIOURS -> addMapControls(viewingConfig().stamina.behaviourMultipliers, BEHAVIOUR_KEYS, false);
-            case STAMINA_LABELS -> addMapControls(viewingConfig().stamina.labelMultipliers, RidingTweaksConfig.knownCobblemonLabels(), true);
-            case STAMINA_SPECIES -> addMapControls(viewingConfig().stamina.speciesOverrides, List.of(), true);
-            case SPEED_SETTINGS -> addSpeedSettingsControls();
-            case SPEED_RIDE_STYLES -> addMapControls(viewingConfig().speed.rideStyleMultipliers, RIDE_STYLE_KEYS, false);
-            case SPEED_BEHAVIOURS -> addMapControls(viewingConfig().speed.behaviourMultipliers, BEHAVIOUR_KEYS, false);
-            case SPEED_LABELS -> addMapControls(viewingConfig().speed.labelMultipliers, RidingTweaksConfig.knownCobblemonLabels(), true);
-            case SPEED_SPECIES -> addMapControls(viewingConfig().speed.speciesOverrides, List.of(), true);
+            case STAMINA_LEVEL -> addLevelControls(viewingConfig().stamina);
+            case STAMINA_RIDE_STYLES -> addRideStyleAndBehaviourControls(viewingConfig().stamina);
+            case STAMINA_LABELS -> addLabelControls(viewingConfig().stamina);
+            case STAMINA_SPECIES -> addSpeciesControls(viewingConfig().stamina);
+            case SPEED_LEVEL -> addLevelControls(viewingConfig().speed);
+            case SPEED_RIDE_STYLES -> addRideStyleAndBehaviourControls(viewingConfig().speed);
+            case SPEED_LABELS -> addLabelControls(viewingConfig().speed);
+            case SPEED_SPECIES -> addSpeciesControls(viewingConfig().speed);
         }
 
         int bottomY = footerButtonsY();
         int reloadWidth = Math.max(64, Math.min(120, (contentWidth - FIELD_GAP) / 3));
         Button reloadButton = Button.builder(Component.literal("Reload"), button -> {
-            manager().reload();
+            if (isSingleplayerSession()) {
+                manager().reloadActiveLocal();
+            } else {
+                manager().reload();
+            }
             localDraft = manager().copyLocalConfig();
             showFeedback("Reloaded local config.", true);
             rebuild();
@@ -214,101 +204,113 @@ public final class RidingTweaksConfigScreen extends Screen {
     private void addGeneralControls() {
         RidingTweaksConfig config = viewingConfig();
         int centerX = this.width / 2;
-        if (shouldShowRow(0)) {
-            addToggle("Config Enabled", config.enabled, value -> config.enabled = value, centerX, rowY(0));
+        addToggle("Mod Enabled", config.enabled, value -> config.enabled = value, centerX, rowY(0), 0);
+        addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(1), 0);
+
+        addHeader("Stamina", 2);
+        addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(3), 0);
+        addToggle("Level Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(4), 18);
+        addToggle("Ride Styles", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(5), 18);
+        addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(6), 18);
+        addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(7), 18);
+        if (shouldShowRow(8)) {
+            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(8), 18);
         }
-        if (shouldShowRow(1)) {
-            addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(1));
+
+        addHeader("Speed", 9);
+        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(10), 0);
+        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(11), 18);
+        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(12), 18);
+        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(13), 18);
+        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(14), 18);
+        if (shouldShowRow(15)) {
+            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(15), 18);
         }
+
+        addHeader("Version", 16);
+        if (shouldShowRow(17)) {
+            addLabel("Config Version", config.configVersion, centerX, rowY(17));
+        }
+    }
+
+    private void addLevelControls(RidingTweaksConfig.FeatureTweaks feature) {
+        RidingTweaksConfig.LevelScaling scaling = feature.levelScaling;
+        int centerX = this.width / 2;
+        addHeader("Level Scaling", 0);
+        addToggle("Enabled", feature.levelScalingEnabled, value -> feature.levelScalingEnabled = value, centerX, rowY(1), 0);
         if (shouldShowRow(2)) {
-            addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(2));
+            addIntField("Min Level", () -> scaling.minLevel, value -> scaling.minLevel = value, centerX, rowY(2));
         }
         if (shouldShowRow(3)) {
-            addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(3));
+            addIntField("Max Level", () -> scaling.maxLevel, value -> scaling.maxLevel = value, centerX, rowY(3));
         }
         if (shouldShowRow(4)) {
-            addToggle(
-                    "Stamina Level Scaling",
-                    config.stamina.levelScalingEnabled,
-                    value -> config.stamina.levelScalingEnabled = value,
-                    centerX,
-                    rowY(4)
-            );
+            addDoubleField("Min Level Multiplier", () -> scaling.minMultiplier, value -> scaling.minMultiplier = value, centerX, rowY(4));
         }
         if (shouldShowRow(5)) {
-            addLabel("Config Version", config.configVersion, centerX, rowY(5));
+            addDoubleField("Max Level Multiplier", () -> scaling.maxMultiplier, value -> scaling.maxMultiplier = value, centerX, rowY(5));
         }
     }
 
-    private void addStaminaLevelControls() {
-        RidingTweaksConfig.LevelScaling scaling = viewingConfig().stamina.levelScaling;
+    private void addRideStyleAndBehaviourControls(RidingTweaksConfig.FeatureTweaks feature) {
         int centerX = this.width / 2;
-        if (shouldShowRow(0)) {
-            addIntField("Min Level", () -> scaling.minLevel, value -> scaling.minLevel = value, centerX, rowY(0));
-        }
+        addToggle("Ride Styles & Behaviours", feature.ridingMultipliersEnabled, value -> feature.ridingMultipliersEnabled = value, centerX, rowY(0), 0);
+        addHeader("Ride Styles", 1);
+        addMapEntries(feature.rideStyleMultipliers, false, 2, RIDE_STYLE_KEYS);
+
+        int behaviourHeaderRow = 2 + RIDE_STYLE_KEYS.size();
+        addHeader("Behaviours", behaviourHeaderRow);
+        int row = behaviourHeaderRow + 1;
+        row = addBehaviourGroup(feature, "Land", LAND_BEHAVIOUR_KEYS, row);
+        row = addBehaviourGroup(feature, "Air", AIR_BEHAVIOUR_KEYS, row);
+        row = addBehaviourGroup(feature, "Liquid", LIQUID_BEHAVIOUR_KEYS, row);
+        addBehaviourGroup(feature, "Other", OTHER_BEHAVIOUR_KEYS, row);
+    }
+
+    private int addBehaviourGroup(RidingTweaksConfig.FeatureTweaks feature, String title, List<String> keys, int startRow) {
+        addSubHeader(title, startRow);
+        addMapEntries(feature.behaviourMultipliers, false, startRow + 1, keys);
+        return startRow + 1 + keys.size();
+    }
+
+    private void addLabelControls(RidingTweaksConfig.FeatureTweaks feature) {
+        int centerX = this.width / 2;
+        addToggle("Label Multipliers", feature.labelMultipliersEnabled, value -> feature.labelMultipliersEnabled = value, centerX, rowY(0), 0);
         if (shouldShowRow(1)) {
-            addIntField("Max Level", () -> scaling.maxLevel, value -> scaling.maxLevel = value, centerX, rowY(1));
+            addDoubleField("Default Multiplier", () -> feature.defaultLabelMultiplier, value -> feature.defaultLabelMultiplier = value, centerX, rowY(1));
         }
-        if (shouldShowRow(2)) {
-            addDoubleField("Min Multiplier", () -> scaling.minMultiplier, value -> scaling.minMultiplier = value, centerX, rowY(2));
-        }
-        if (shouldShowRow(3)) {
-            addDoubleField("Max Multiplier", () -> scaling.maxMultiplier, value -> scaling.maxMultiplier = value, centerX, rowY(3));
-        }
-        if (shouldShowRow(4)) {
-            addDoubleField(
-                    "Default Label Multiplier",
-                    () -> viewingConfig().stamina.defaultLabelMultiplier,
-                    value -> viewingConfig().stamina.defaultLabelMultiplier = value,
-                    centerX,
-                    rowY(4)
-            );
-        }
-        if (shouldShowRow(5)) {
-            addDoubleField(
-                    "Max Final Multiplier",
-                    () -> viewingConfig().stamina.maxFinalMultiplier,
-                    value -> viewingConfig().stamina.maxFinalMultiplier = value,
-                    centerX,
-                    rowY(5)
-            );
-        }
+        addHeader("Labels", 2);
+        addMapEntries(feature.labelMultipliers, true, 3, new ArrayList<>(feature.labelMultipliers.keySet()));
+        addMapButtons(feature.labelMultipliers, RidingTweaksConfig.knownCobblemonLabels(), true);
     }
 
-    private void addSpeedSettingsControls() {
-        RidingTweaksConfig.SpeedTweaks speed = viewingConfig().speed;
+    private void addSpeciesControls(RidingTweaksConfig.FeatureTweaks feature) {
         int centerX = this.width / 2;
-        if (shouldShowRow(0)) {
-            addToggle("Speed Tweaks", speed.enabled, value -> speed.enabled = value, centerX, rowY(0));
-        }
-        if (shouldShowRow(1)) {
-            addDoubleField("Default Label Multiplier", () -> speed.defaultLabelMultiplier, value -> speed.defaultLabelMultiplier = value, centerX, rowY(1));
-        }
-        if (shouldShowRow(2)) {
-            addDoubleField("Max Final Multiplier", () -> speed.maxFinalMultiplier, value -> speed.maxFinalMultiplier = value, centerX, rowY(2));
-        }
+        addToggle("Species Overrides", feature.speciesOverridesEnabled, value -> feature.speciesOverridesEnabled = value, centerX, rowY(0), 0);
+        addHeader("Overrides", 1);
+        addMapEntries(feature.speciesOverrides, true, 2, new ArrayList<>(feature.speciesOverrides.keySet()));
+        addMapButtons(feature.speciesOverrides, List.of(), true);
     }
 
-    private void addMapControls(Map<String, Double> multipliers, List<String> knownKeys, boolean editableKeys) {
+    private void addMapEntries(Map<String, Double> multipliers, boolean editableKeys, int startRow, List<String> keys) {
         int centerX = this.width / 2;
-        int visibleRows = visibleRows();
-        List<Map.Entry<String, Double>> entries = new ArrayList<>(multipliers.entrySet());
-        scrollRow = Math.clamp(scrollRow, 0, Math.max(0, entries.size() - visibleRows));
-        int start = Math.min(scrollRow, entries.size());
-        int end = Math.min(start + visibleRows, entries.size());
-        int y = rowsTop();
-
-        for (int index = start; index < end; index++) {
-            Map.Entry<String, Double> entry = entries.get(index);
-            if (editableKeys) {
-                addEditableMapRow(multipliers, entry.getKey(), entry.getValue(), centerX, y);
-            } else {
-                addMapValueRow(multipliers, entry.getKey(), entry.getValue(), centerX, y);
+        for (int index = 0; index < keys.size(); index++) {
+            String key = keys.get(index);
+            int row = startRow + index;
+            if (!shouldShowRow(row)) {
+                continue;
             }
-            y += ROW_HEIGHT;
+            double value = multipliers.getOrDefault(key, 1.0D);
+            if (editableKeys) {
+                addEditableMapRow(multipliers, key, value, centerX, rowY(row));
+            } else {
+                addMapValueRow(multipliers, key, value, centerX, rowY(row));
+            }
         }
+    }
 
-        int buttonY = rowsTop() + visibleRows * ROW_HEIGHT + 4;
+    private void addMapButtons(Map<String, Double> multipliers, List<String> knownKeys, boolean editableKeys) {
+        int buttonY = rowsTop() + visibleRows() * ROW_HEIGHT + 4;
         if (selectedSection.labelSection && !knownKeys.isEmpty()) {
             Button addKnownButton = Button.builder(Component.literal("Add Known"), button -> {
                 knownPickerOpen = true;
@@ -329,14 +331,33 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
     }
 
+    private void addHeader(String label, int row) {
+        if (shouldShowRow(row)) {
+            labelLines.add(new LabelLine(fitText(label, contentWidth()), contentLeft(), rowY(row) + 6, 0xFFE080));
+        }
+    }
+
+    private void addSubHeader(String label, int row) {
+        if (shouldShowRow(row)) {
+            labelLines.add(new LabelLine(fitText(label, labelWidth() - 12), labelX() + 12, rowY(row) + 6, 0xC8D8FF));
+        }
+    }
+
     private void addToggle(String label, boolean currentValue, Consumer<Boolean> setter, int centerX, int y) {
+        addToggle(label, currentValue, setter, centerX, y, 0);
+    }
+
+    private void addToggle(String label, boolean currentValue, Consumer<Boolean> setter, int centerX, int y, int indent) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
         Button button = Button.builder(Component.literal(onOff(currentValue)), pressed -> {
             setter.accept(!currentValue);
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
         addRenderableWidget(button);
-        addRowLabel(label, labelX(), y + 6);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
     private void addLabel(String label, String value, int centerX, int y) {
@@ -358,10 +379,14 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addDoubleField(String label, Supplier<Double> getter, Consumer<Double> setter, int centerX, int y) {
+        addDoubleField(label, getter, setter, centerX, y, 0);
+    }
+
+    private void addDoubleField(String label, Supplier<Double> getter, Consumer<Double> setter, int centerX, int y, int indent) {
         EditBox box = textBox(valueX(), y, valueWidth(), formatDouble(getter.get()));
         box.setResponder(value -> parseMultiplier(label, value, setter));
         addRenderableWidget(box);
-        addRowLabel(label, labelX(), y + 6);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
     private void addMapValueRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
@@ -437,7 +462,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             suffix++;
         }
         multipliers.put(key, 1.0D);
-        scrollRow = Math.max(0, multipliers.size() - visibleRows());
+        scrollRow = Math.max(0, rowCountForSection() - visibleRows());
     }
 
     private String customButtonText() {
@@ -446,12 +471,8 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private Map<String, Double> currentMap() {
         return switch (selectedSection) {
-            case STAMINA_RIDE_STYLES -> viewingConfig().stamina.rideStyleMultipliers;
-            case STAMINA_BEHAVIOURS -> viewingConfig().stamina.behaviourMultipliers;
             case STAMINA_LABELS -> viewingConfig().stamina.labelMultipliers;
             case STAMINA_SPECIES -> viewingConfig().stamina.speciesOverrides;
-            case SPEED_RIDE_STYLES -> viewingConfig().speed.rideStyleMultipliers;
-            case SPEED_BEHAVIOURS -> viewingConfig().speed.behaviourMultipliers;
             case SPEED_LABELS -> viewingConfig().speed.labelMultipliers;
             case SPEED_SPECIES -> viewingConfig().speed.speciesOverrides;
             default -> Map.of();
@@ -467,12 +488,23 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private int rowCountForSection() {
         return switch (selectedSection) {
-            case GENERAL -> 6;
-            case STAMINA_LEVEL -> 6;
-            case SPEED_SETTINGS -> 3;
-            case STAMINA_RIDE_STYLES, STAMINA_BEHAVIOURS, STAMINA_LABELS, STAMINA_SPECIES,
-                    SPEED_RIDE_STYLES, SPEED_BEHAVIOURS, SPEED_LABELS, SPEED_SPECIES -> currentMap().size();
+            case GENERAL -> 18;
+            case STAMINA_LEVEL, SPEED_LEVEL -> 6;
+            case STAMINA_RIDE_STYLES, SPEED_RIDE_STYLES -> rideStyleAndBehaviourRowCount();
+            case STAMINA_LABELS, SPEED_LABELS -> 3 + currentMap().size();
+            case STAMINA_SPECIES, SPEED_SPECIES -> 2 + currentMap().size();
         };
+    }
+
+    private int rideStyleAndBehaviourRowCount() {
+        return 1
+                + 1
+                + RIDE_STYLE_KEYS.size()
+                + 1
+                + 1 + LAND_BEHAVIOUR_KEYS.size()
+                + 1 + AIR_BEHAVIOUR_KEYS.size()
+                + 1 + LIQUID_BEHAVIOUR_KEYS.size()
+                + 1 + OTHER_BEHAVIOUR_KEYS.size();
     }
 
     private int maxScrollRows() {
@@ -774,7 +806,11 @@ public final class RidingTweaksConfigScreen extends Screen {
             ClientPlayNetworking.send(new ConfigUpdatePayload(manager().toJson(draft)));
             return;
         }
-        manager().replaceAndSave(draft);
+        if (isSingleplayerSession()) {
+            manager().replaceAndSaveActiveLocal(draft);
+        } else {
+            manager().replaceAndSave(draft);
+        }
         localDraft = manager().copyLocalConfig();
         showFeedback("Saved and reloaded local config.", true);
         rebuild();
@@ -797,7 +833,11 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addRowLabel(String text, int x, int y) {
-        labelLines.add(new LabelLine(fitText(text, labelWidth()), x, y, 0xD8D8D8));
+        addRowLabel(text, x, y, labelWidth());
+    }
+
+    private void addRowLabel(String text, int x, int y, int maxWidth) {
+        labelLines.add(new LabelLine(fitText(text, Math.max(20, maxWidth)), x, y, 0xD8D8D8));
     }
 
     private void drawCenteredStringWithBacking(GuiGraphics graphics, String rawText, int y, int color, int backgroundColor) {
@@ -859,16 +899,14 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private enum Section {
         GENERAL("General", false, false, false),
-        STAMINA_LEVEL("Stamina Scaling", false, false, false),
-        STAMINA_RIDE_STYLES("Stamina Ride Styles", true, false, false),
-        STAMINA_BEHAVIOURS("Stamina Behaviours", true, false, false),
-        STAMINA_LABELS("Stamina Labels", true, true, false),
-        STAMINA_SPECIES("Stamina Species", true, false, true),
-        SPEED_SETTINGS("Speed Settings", false, false, false),
-        SPEED_RIDE_STYLES("Speed Ride Styles", true, false, false),
-        SPEED_BEHAVIOURS("Speed Behaviours", true, false, false),
-        SPEED_LABELS("Speed Labels", true, true, false),
-        SPEED_SPECIES("Speed Species", true, false, true);
+        STAMINA_LEVEL("Stamina - Scaling", false, false, false),
+        STAMINA_RIDE_STYLES("Stamina - Ride Styles", false, false, false),
+        STAMINA_LABELS("Stamina - Labels", true, true, false),
+        STAMINA_SPECIES("Stamina - Species", true, false, true),
+        SPEED_LEVEL("Speed - Scaling", false, false, false),
+        SPEED_RIDE_STYLES("Speed - Ride Styles", false, false, false),
+        SPEED_LABELS("Speed - Labels", true, true, false),
+        SPEED_SPECIES("Speed - Species", true, false, true);
 
         private final String title;
         private final boolean mapSection;

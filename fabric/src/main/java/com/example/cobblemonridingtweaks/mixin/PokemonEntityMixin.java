@@ -19,13 +19,13 @@ import java.util.Locale;
 @Mixin(PokemonEntity.class)
 public abstract class PokemonEntityMixin {
     @Redirect(
-            method = "tickRidden(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/phys/Vec3;)V",
+            method = "tickRidden$lambda$0(Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/phys/Vec3;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviour;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourSettings;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourState;)Lkotlin/Unit;",
             at = @At(
                     value = "INVOKE",
                     target = "Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviour;tick(Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourSettings;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourState;Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/phys/Vec3;)V"
             )
     )
-    private void cobblemonRidingTweaks$scaleStaminaDrain(
+    private static void cobblemonRidingTweaks$scaleStaminaDrain(
             RidingBehaviour<RidingBehaviourSettings, RidingBehaviourState> behaviour,
             RidingBehaviourSettings settings,
             RidingBehaviourState state,
@@ -59,13 +59,13 @@ public abstract class PokemonEntityMixin {
     }
 
     @Redirect(
-            method = "getRiddenSpeed(Lnet/minecraft/world/entity/player/Player;)F",
+            method = "getRiddenSpeed$lambda$0(Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/world/entity/player/Player;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviour;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourSettings;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourState;)F",
             at = @At(
                     value = "INVOKE",
                     target = "Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviour;speed(Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourSettings;Lcom/cobblemon/mod/common/api/riding/behaviour/RidingBehaviourState;Lcom/cobblemon/mod/common/entity/pokemon/PokemonEntity;Lnet/minecraft/world/entity/player/Player;)F"
             )
     )
-    private float cobblemonRidingTweaks$scaleRiddenSpeed(
+    private static float cobblemonRidingTweaks$scaleRiddenSpeed(
             RidingBehaviour<RidingBehaviourSettings, RidingBehaviourState> behaviour,
             RidingBehaviourSettings settings,
             RidingBehaviourState state,
@@ -75,6 +75,7 @@ public abstract class PokemonEntityMixin {
         float speed = behaviour.speed(settings, state, vehicle, driver);
         Pokemon pokemon = vehicle.getPokemon();
         double multiplier = CobblemonRidingTweaks.configManager().speedMultiplier(
+                pokemon.getLevel(),
                 cobblemonRidingTweaks$labels(pokemon),
                 cobblemonRidingTweaks$speciesId(pokemon),
                 cobblemonRidingTweaks$rideStyle(behaviour, settings, state),

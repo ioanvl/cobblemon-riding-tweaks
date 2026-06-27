@@ -148,9 +148,6 @@ public final class RidingTweaksConfig {
     }
 
     public static final class StaminaTweaks extends FeatureTweaks {
-        public boolean levelScalingEnabled = true;
-        public LevelScaling levelScaling = new LevelScaling();
-
         public StaminaTweaks() {
             rideStyleMultipliers = allRideStyleMultipliers();
             behaviourMultipliers = allBehaviourMultipliers();
@@ -160,29 +157,30 @@ public final class RidingTweaksConfig {
 
         private void sanitize() {
             super.sanitize(true);
-            if (levelScaling == null) {
-                levelScaling = new LevelScaling();
-            }
-            levelScaling.sanitize();
         }
     }
 
     public static final class SpeedTweaks extends FeatureTweaks {
         public SpeedTweaks() {
             enabled = false;
-            rideStyleMultipliers = emptyMultipliers();
-            behaviourMultipliers = emptyMultipliers();
-            labelMultipliers = emptyMultipliers();
+            rideStyleMultipliers = allRideStyleMultipliers();
+            behaviourMultipliers = allBehaviourMultipliers();
+            labelMultipliers = defaultLabelMultipliers();
             maxFinalMultiplier = 5.0D;
         }
 
         private void sanitize() {
-            super.sanitize(false);
+            super.sanitize(true);
         }
     }
 
     public static class FeatureTweaks {
         public boolean enabled = true;
+        public boolean levelScalingEnabled = true;
+        public boolean ridingMultipliersEnabled = true;
+        public boolean labelMultipliersEnabled = true;
+        public boolean speciesOverridesEnabled = true;
+        public LevelScaling levelScaling = new LevelScaling();
         public Map<String, Double> rideStyleMultipliers = emptyMultipliers();
         public Map<String, Double> behaviourMultipliers = emptyMultipliers();
         public Map<String, Double> labelMultipliers = emptyMultipliers();
@@ -197,6 +195,10 @@ public final class RidingTweaksConfig {
             speciesOverrides = sanitizeMultiplierMap(speciesOverrides, emptyMultipliers(), false);
             defaultLabelMultiplier = sanitizeMultiplier(defaultLabelMultiplier, 1.0D);
             maxFinalMultiplier = sanitizeMultiplier(maxFinalMultiplier, 10.0D);
+            if (levelScaling == null) {
+                levelScaling = new LevelScaling();
+            }
+            levelScaling.sanitize();
         }
     }
 
