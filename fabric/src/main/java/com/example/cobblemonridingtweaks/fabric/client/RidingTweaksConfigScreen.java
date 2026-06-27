@@ -257,33 +257,35 @@ public final class RidingTweaksConfigScreen extends Screen {
 
         addHeader("Stamina", 2);
         addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(3), 0);
-        addToggle("Level Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(4), 18);
-        addToggle("Ride Styles", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(5), 18);
-        addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(6), 18);
-        addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(7), 18);
-        if (shouldShowRow(8)) {
-            addDoubleField("Min Final Multiplier", () -> config.stamina.minFinalMultiplier, value -> config.stamina.minFinalMultiplier = value, centerX, rowY(8), 18);
-        }
+        addStackingModeToggle("Stacking Mode", config.stamina, centerX, rowY(4), 0);
+        addToggle("Level Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(5), 18);
+        addToggle("Ride Styles", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(6), 18);
+        addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(7), 18);
+        addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(8), 18);
         if (shouldShowRow(9)) {
-            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(9), 18);
+            addDoubleField("Min Final Multiplier", () -> config.stamina.minFinalMultiplier, value -> config.stamina.minFinalMultiplier = value, centerX, rowY(9), 18);
+        }
+        if (shouldShowRow(10)) {
+            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(10), 18);
         }
 
-        addHeader("Speed", 10);
-        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(11), 0);
-        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(12), 18);
-        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(13), 18);
-        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(14), 18);
-        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(15), 18);
-        if (shouldShowRow(16)) {
-            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(16), 18);
+        addHeader("Speed", 11);
+        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(12), 0);
+        addStackingModeToggle("Stacking Mode", config.speed, centerX, rowY(13), 0);
+        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(14), 18);
+        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(15), 18);
+        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(16), 18);
+        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(17), 18);
+        if (shouldShowRow(18)) {
+            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(18), 18);
         }
-        if (shouldShowRow(17)) {
-            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(17), 18);
-        }
-
-        addHeader("Version", 18);
         if (shouldShowRow(19)) {
-            addLabel("Config Version", config.configVersion, centerX, rowY(19));
+            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(19), 18);
+        }
+
+        addHeader("Version", 20);
+        if (shouldShowRow(21)) {
+            addLabel("Config Version", config.configVersion, centerX, rowY(21));
         }
     }
 
@@ -408,6 +410,19 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
         Button button = Button.builder(Component.literal(onOff(currentValue)), pressed -> {
             setter.accept(!currentValue);
+            rebuild();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
+        button.active = selectedTabIsEditable();
+        addRenderableWidget(button);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addStackingModeToggle(String label, RidingTweaksConfig.FeatureTweaks feature, int centerX, int y, int indent) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+        Button button = Button.builder(Component.literal(stackingModeText(feature.stackingMode)), pressed -> {
+            feature.stackingMode = nextStackingMode(feature.stackingMode);
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
@@ -547,7 +562,7 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private int rowCountForSection() {
         return switch (selectedSection) {
-            case GENERAL -> 20;
+            case GENERAL -> 22;
             case STAMINA_LEVEL, SPEED_LEVEL -> 4;
             case STAMINA_RIDE_STYLES, SPEED_RIDE_STYLES -> rideStyleAndBehaviourRowCount();
             case STAMINA_LABELS, SPEED_LABELS -> 3 + currentMap().size();
@@ -1067,6 +1082,16 @@ public final class RidingTweaksConfigScreen extends Screen {
         return value ? "On" : "Off";
     }
 
+    private static String stackingModeText(String mode) {
+        return RidingTweaksConfig.STACKING_MODE_STACKING.equals(normalizeKeyOrBlank(mode)) ? "Stacking" : "Additive";
+    }
+
+    private static String nextStackingMode(String mode) {
+        return RidingTweaksConfig.STACKING_MODE_STACKING.equals(normalizeKeyOrBlank(mode))
+                ? RidingTweaksConfig.STACKING_MODE_ADDITIVE
+                : RidingTweaksConfig.STACKING_MODE_STACKING;
+    }
+
     private static String formatDouble(double value) {
         if (value == Math.rint(value)) {
             return String.valueOf((long) value);
@@ -1076,6 +1101,10 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private static String normalizeKey(String value) {
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizeKeyOrBlank(String value) {
+        return value == null ? "" : normalizeKey(value);
     }
 
     private static RidingTweaksConfigManager manager() {

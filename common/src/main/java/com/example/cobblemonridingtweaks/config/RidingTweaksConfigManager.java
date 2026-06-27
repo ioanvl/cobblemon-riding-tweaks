@@ -15,7 +15,9 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 public final class RidingTweaksConfigManager {
@@ -199,11 +201,7 @@ public final class RidingTweaksConfigManager {
             return 1.0D;
         }
 
-        double multiplier = levelMultiplier(activeConfig.stamina, level)
-                * ridingMultiplier(activeConfig.stamina, rideStyle, behaviour)
-                * speciesOrLabelMultiplier(activeConfig.stamina, labels, speciesId);
-
-        return clampFinalMultiplier(activeConfig.stamina, multiplier);
+        return configuredMultiplier(activeConfig.stamina, level, labels, speciesId, rideStyle, behaviour);
     }
 
     public double speedMultiplier(
@@ -217,11 +215,7 @@ public final class RidingTweaksConfigManager {
             return 1.0D;
         }
 
-        double multiplier = levelMultiplier(activeConfig.speed, level)
-                * ridingMultiplier(activeConfig.speed, rideStyle, behaviour)
-                * speciesOrLabelMultiplier(activeConfig.speed, labels, speciesId);
-
-        return clampFinalMultiplier(activeConfig.speed, multiplier);
+        return configuredMultiplier(activeConfig.speed, level, labels, speciesId, rideStyle, behaviour);
     }
 
     public float scaleDrain(
@@ -247,7 +241,37 @@ public final class RidingTweaksConfigManager {
         return Math.max(0.01D, multiplier);
     }
 
-    private double speciesOrLabelMultiplier(
+    private double configuredMultiplier(
+            RidingTweaksConfig.FeatureTweaks feature,
+            int level,
+            Collection<String> labels,
+            String speciesId,
+            String rideStyle,
+            String behaviour
+    ) {
+        List<Double> factors = new ArrayList<>();
+        factors.add(levelMultiplier(feature, level));
+        addRidingFactors(factors, feature, rideStyle, behaviour);
+        addSpeciesOrLabelFactors(factors, feature, labels, speciesId);
+        return clampFinalMultiplier(feature, combineMultipliers(feature, factors));
+    }
+
+    private void addRidingFactors(
+            List<Double> factors,
+            RidingTweaksConfig.FeatureTweaks feature,
+            String rideStyle,
+            String behaviour
+    ) {
+        if (!feature.ridingMultipliersEnabled) {
+            return;
+        }
+
+        factors.add(keyedMultiplier(feature.rideStyleMultipliers, rideStyle));
+        factors.add(keyedMultiplier(feature.behaviourMultipliers, behaviour));
+    }
+
+    private void addSpeciesOrLabelFactors(
+            List<Double> factors,
             RidingTweaksConfig.FeatureTweaks feature,
             Collection<String> labels,
             String speciesId
@@ -255,34 +279,44 @@ public final class RidingTweaksConfigManager {
         if (feature.speciesOverridesEnabled) {
             Double speciesMultiplier = speciesMultiplier(feature, speciesId);
             if (speciesMultiplier != null) {
-                return speciesMultiplier;
+                factors.add(speciesMultiplier);
+                return;
             }
         }
 
         if (!feature.labelMultipliersEnabled) {
-            return 1.0D;
+            return;
         }
 
-        double labelMultiplier = 1.0D;
         boolean matchedLabel = false;
         if (labels != null) {
             for (String label : labels) {
                 Double configuredMultiplier = keyedMultiplierOrNull(feature.labelMultipliers, label);
                 if (configuredMultiplier != null) {
-                    labelMultiplier *= configuredMultiplier;
+                    factors.add(configuredMultiplier);
                     matchedLabel = true;
                 }
             }
         }
-        return matchedLabel ? labelMultiplier : feature.defaultLabelMultiplier;
+        if (!matchedLabel) {
+            factors.add(feature.defaultLabelMultiplier);
+        }
     }
 
-    private double ridingMultiplier(RidingTweaksConfig.FeatureTweaks feature, String rideStyle, String behaviour) {
-        if (!feature.ridingMultipliersEnabled) {
-            return 1.0D;
+    private double combineMultipliers(RidingTweaksConfig.FeatureTweaks feature, List<Double> factors) {
+        if (RidingTweaksConfig.STACKING_MODE_STACKING.equals(feature.stackingMode)) {
+            double multiplier = 1.0D;
+            for (double factor : factors) {
+                multiplier *= factor;
+            }
+            return multiplier;
         }
-        return keyedMultiplier(feature.rideStyleMultipliers, rideStyle)
-                * keyedMultiplier(feature.behaviourMultipliers, behaviour);
+
+        double multiplier = 1.0D;
+        for (double factor : factors) {
+            multiplier += factor - 1.0D;
+        }
+        return multiplier;
     }
 
     private double clampFinalMultiplier(RidingTweaksConfig.FeatureTweaks feature, double multiplier) {

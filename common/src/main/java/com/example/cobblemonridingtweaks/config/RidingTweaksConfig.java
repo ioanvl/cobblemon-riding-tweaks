@@ -7,6 +7,8 @@ import java.util.Map;
 
 public final class RidingTweaksConfig {
     public static final String SUPPORTED_CONFIG_VERSION = "1.0.0";
+    public static final String STACKING_MODE_ADDITIVE = "additive";
+    public static final String STACKING_MODE_STACKING = "stacking";
 
     public String configVersion = SUPPORTED_CONFIG_VERSION;
     public boolean enabled = true;
@@ -38,6 +40,15 @@ public final class RidingTweaksConfig {
 
     static String normalizeKey(String value) {
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String sanitizeStackingMode(String value) {
+        if (value == null) {
+            return STACKING_MODE_ADDITIVE;
+        }
+
+        String normalized = normalizeKey(value);
+        return STACKING_MODE_STACKING.equals(normalized) ? STACKING_MODE_STACKING : STACKING_MODE_ADDITIVE;
     }
 
     private static Map<String, Double> sanitizeMultiplierMap(
@@ -174,6 +185,7 @@ public final class RidingTweaksConfig {
 
     public static class FeatureTweaks {
         public boolean enabled = true;
+        public String stackingMode = STACKING_MODE_ADDITIVE;
         public boolean levelScalingEnabled = true;
         public boolean ridingMultipliersEnabled = true;
         public boolean labelMultipliersEnabled = true;
@@ -188,6 +200,7 @@ public final class RidingTweaksConfig {
         public Map<String, Double> speciesOverrides = emptyMultipliers();
 
         private void sanitize(boolean includeKnownKeys) {
+            stackingMode = sanitizeStackingMode(stackingMode);
             rideStyleMultipliers = sanitizeMultiplierMap(rideStyleMultipliers, allRideStyleMultipliers(), includeKnownKeys);
             behaviourMultipliers = sanitizeMultiplierMap(behaviourMultipliers, allBehaviourMultipliers(), includeKnownKeys);
             labelMultipliers = sanitizeMultiplierMap(labelMultipliers, defaultLabelMultipliers(), includeKnownKeys);
