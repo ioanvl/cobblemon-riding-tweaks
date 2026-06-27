@@ -186,6 +186,7 @@ public final class RidingTweaksConfig {
         public Map<String, Double> labelMultipliers = emptyMultipliers();
         public Map<String, Double> speciesOverrides = emptyMultipliers();
         public double defaultLabelMultiplier = 1.0D;
+        public double minFinalMultiplier = 0.01D;
         public double maxFinalMultiplier = 10.0D;
 
         private void sanitize(boolean includeKnownKeys) {
@@ -194,7 +195,8 @@ public final class RidingTweaksConfig {
             labelMultipliers = sanitizeMultiplierMap(labelMultipliers, defaultLabelMultipliers(), includeKnownKeys);
             speciesOverrides = sanitizeMultiplierMap(speciesOverrides, emptyMultipliers(), false);
             defaultLabelMultiplier = sanitizeMultiplier(defaultLabelMultiplier, 1.0D);
-            maxFinalMultiplier = sanitizeMultiplier(maxFinalMultiplier, 10.0D);
+            minFinalMultiplier = sanitizeMultiplier(minFinalMultiplier, 0.01D);
+            maxFinalMultiplier = Math.max(minFinalMultiplier, sanitizeMultiplier(maxFinalMultiplier, 10.0D));
             if (levelScaling == null) {
                 levelScaling = new LevelScaling();
             }

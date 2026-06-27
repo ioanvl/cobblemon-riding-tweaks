@@ -3,6 +3,7 @@ package com.example.cobblemonridingtweaks.mixin;
 import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviour;
 import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviourSettings;
 import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviourState;
+import com.cobblemon.mod.common.api.riding.behaviour.types.composite.CompositeState;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
@@ -49,7 +50,7 @@ public abstract class PokemonEntityMixin {
                 cobblemonRidingTweaks$labels(pokemon),
                 cobblemonRidingTweaks$speciesId(pokemon),
                 cobblemonRidingTweaks$rideStyle(behaviour, settings, state),
-                cobblemonRidingTweaks$behaviourKey(behaviour)
+                cobblemonRidingTweaks$behaviourKey(behaviour, state)
         );
         float scaledStamina = Math.max(0.0F, Math.min(1.0F, staminaBefore - scaledDrain));
 
@@ -79,7 +80,7 @@ public abstract class PokemonEntityMixin {
                 cobblemonRidingTweaks$labels(pokemon),
                 cobblemonRidingTweaks$speciesId(pokemon),
                 cobblemonRidingTweaks$rideStyle(behaviour, settings, state),
-                cobblemonRidingTweaks$behaviourKey(behaviour)
+                cobblemonRidingTweaks$behaviourKey(behaviour, state)
         );
         return (float) (speed * multiplier);
     }
@@ -102,8 +103,15 @@ public abstract class PokemonEntityMixin {
     }
 
     private static String cobblemonRidingTweaks$behaviourKey(
-            RidingBehaviour<RidingBehaviourSettings, RidingBehaviourState> behaviour
+            RidingBehaviour<RidingBehaviourSettings, RidingBehaviourState> behaviour,
+            RidingBehaviourState state
     ) {
+        if (state instanceof CompositeState compositeState) {
+            ResourceLocation activeBehaviour = compositeState.getActiveBehaviour().get();
+            if (activeBehaviour != null) {
+                return activeBehaviour.toString();
+            }
+        }
         return behaviour.getKey().toString();
     }
 }

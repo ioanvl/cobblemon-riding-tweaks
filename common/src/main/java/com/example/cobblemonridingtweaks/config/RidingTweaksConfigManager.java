@@ -203,7 +203,7 @@ public final class RidingTweaksConfigManager {
                 * ridingMultiplier(activeConfig.stamina, rideStyle, behaviour)
                 * speciesOrLabelMultiplier(activeConfig.stamina, labels, speciesId);
 
-        return Math.clamp(multiplier, 0.01D, activeConfig.stamina.maxFinalMultiplier);
+        return clampFinalMultiplier(activeConfig.stamina, multiplier);
     }
 
     public double speedMultiplier(
@@ -221,7 +221,7 @@ public final class RidingTweaksConfigManager {
                 * ridingMultiplier(activeConfig.speed, rideStyle, behaviour)
                 * speciesOrLabelMultiplier(activeConfig.speed, labels, speciesId);
 
-        return Math.clamp(multiplier, 0.01D, activeConfig.speed.maxFinalMultiplier);
+        return clampFinalMultiplier(activeConfig.speed, multiplier);
     }
 
     public float scaleDrain(
@@ -269,13 +269,18 @@ public final class RidingTweaksConfigManager {
             return 1.0D;
         }
 
-        double labelMultiplier = feature.defaultLabelMultiplier;
+        double labelMultiplier = 1.0D;
+        boolean matchedLabel = false;
         if (labels != null) {
             for (String label : labels) {
-                labelMultiplier = Math.max(labelMultiplier, keyedMultiplier(feature.labelMultipliers, label));
+                Double configuredMultiplier = keyedMultiplierOrNull(feature.labelMultipliers, label);
+                if (configuredMultiplier != null) {
+                    labelMultiplier *= configuredMultiplier;
+                    matchedLabel = true;
+                }
             }
         }
-        return labelMultiplier;
+        return matchedLabel ? labelMultiplier : feature.defaultLabelMultiplier;
     }
 
     private double ridingMultiplier(RidingTweaksConfig.FeatureTweaks feature, String rideStyle, String behaviour) {
@@ -286,27 +291,34 @@ public final class RidingTweaksConfigManager {
                 * keyedMultiplier(feature.behaviourMultipliers, behaviour);
     }
 
+    private double clampFinalMultiplier(RidingTweaksConfig.FeatureTweaks feature, double multiplier) {
+        double min = Math.max(0.01D, feature.minFinalMultiplier);
+        double max = Math.max(min, feature.maxFinalMultiplier);
+        return Math.clamp(multiplier, min, max);
+    }
+
     private Double speciesMultiplier(RidingTweaksConfig.FeatureTweaks feature, String speciesId) {
         if (speciesId == null || speciesId.isBlank()) {
             return null;
         }
 
         String normalized = RidingTweaksConfig.normalizeKey(speciesId);
-        Double exact = feature.speciesOverrides.get(normalized);
+        Double exact = keyedMultiplierOrNull(feature.speciesOverrides, normalized);
         if (exact != null) {
             return exact;
         }
 
-        int namespaceSeparator = normalized.indexOf(':');
-        if (namespaceSeparator >= 0 && namespaceSeparator + 1 < normalized.length()) {
-            return feature.speciesOverrides.get(normalized.substring(namespaceSeparator + 1));
-        }
         return null;
     }
 
     private static double keyedMultiplier(Map<String, Double> multipliers, String key) {
+        Double multiplier = keyedMultiplierOrNull(multipliers, key);
+        return multiplier == null ? 1.0D : multiplier;
+    }
+
+    private static Double keyedMultiplierOrNull(Map<String, Double> multipliers, String key) {
         if (key == null || key.isBlank()) {
-            return 1.0D;
+            return null;
         }
         String normalized = RidingTweaksConfig.normalizeKey(key);
         Double exact = multipliers.get(normalized);
@@ -316,9 +328,9 @@ public final class RidingTweaksConfigManager {
 
         int pathSeparator = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf(':'));
         if (pathSeparator >= 0 && pathSeparator + 1 < normalized.length()) {
-            return multipliers.getOrDefault(normalized.substring(pathSeparator + 1), 1.0D);
+            return multipliers.get(normalized.substring(pathSeparator + 1));
         }
-        return 1.0D;
+        return null;
     }
 
     private static RidingTweaksConfig read(Path path) {
@@ -459,6 +471,7 @@ public final class RidingTweaksConfigManager {
             return;
         }
         warnIfInvalid(section + ".defaultLabelMultiplier", feature.defaultLabelMultiplier);
+        warnIfInvalid(section + ".minFinalMultiplier", feature.minFinalMultiplier);
         warnIfInvalid(section + ".maxFinalMultiplier", feature.maxFinalMultiplier);
         warnForInvalidNumbers(section + ".rideStyleMultipliers", feature.rideStyleMultipliers);
         warnForInvalidNumbers(section + ".behaviourMultipliers", feature.behaviourMultipliers);

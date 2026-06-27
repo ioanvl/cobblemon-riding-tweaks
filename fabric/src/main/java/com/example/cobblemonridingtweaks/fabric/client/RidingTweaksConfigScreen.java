@@ -214,22 +214,28 @@ public final class RidingTweaksConfigScreen extends Screen {
         addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(6), 18);
         addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(7), 18);
         if (shouldShowRow(8)) {
-            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(8), 18);
+            addDoubleField("Min Final Multiplier", () -> config.stamina.minFinalMultiplier, value -> config.stamina.minFinalMultiplier = value, centerX, rowY(8), 18);
+        }
+        if (shouldShowRow(9)) {
+            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(9), 18);
         }
 
-        addHeader("Speed", 9);
-        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(10), 0);
-        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(11), 18);
-        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(12), 18);
-        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(13), 18);
-        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(14), 18);
-        if (shouldShowRow(15)) {
-            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(15), 18);
+        addHeader("Speed", 10);
+        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(11), 0);
+        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(12), 18);
+        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(13), 18);
+        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(14), 18);
+        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(15), 18);
+        if (shouldShowRow(16)) {
+            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(16), 18);
         }
-
-        addHeader("Version", 16);
         if (shouldShowRow(17)) {
-            addLabel("Config Version", config.configVersion, centerX, rowY(17));
+            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(17), 18);
+        }
+
+        addHeader("Version", 18);
+        if (shouldShowRow(19)) {
+            addLabel("Config Version", config.configVersion, centerX, rowY(19));
         }
     }
 
@@ -488,7 +494,7 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private int rowCountForSection() {
         return switch (selectedSection) {
-            case GENERAL -> 18;
+            case GENERAL -> 20;
             case STAMINA_LEVEL, SPEED_LEVEL -> 6;
             case STAMINA_RIDE_STYLES, SPEED_RIDE_STYLES -> rideStyleAndBehaviourRowCount();
             case STAMINA_LABELS, SPEED_LABELS -> 3 + currentMap().size();
@@ -760,7 +766,8 @@ public final class RidingTweaksConfigScreen extends Screen {
         return "Version " + config.configVersion
                 + " | stamina x" + formatDouble(config.stamina.levelScaling.minMultiplier)
                 + "-x" + formatDouble(config.stamina.levelScaling.maxMultiplier)
-                + " | max x" + formatDouble(config.stamina.maxFinalMultiplier);
+                + " | final x" + formatDouble(config.stamina.minFinalMultiplier)
+                + "-x" + formatDouble(config.stamina.maxFinalMultiplier);
     }
 
     private String statusText() {
