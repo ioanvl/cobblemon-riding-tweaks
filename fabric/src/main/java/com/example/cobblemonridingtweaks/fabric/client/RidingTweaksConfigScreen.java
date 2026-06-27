@@ -5,11 +5,13 @@ import com.example.cobblemonridingtweaks.config.RidingTweaksConfig;
 import com.example.cobblemonridingtweaks.config.RidingTweaksConfigManager;
 import com.example.cobblemonridingtweaks.fabric.net.ConfigUpdatePayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,14 +24,13 @@ public final class RidingTweaksConfigScreen extends Screen {
     private static final long FEEDBACK_VISIBLE_MILLIS = 2_500L;
     private static final int ROW_HEIGHT = 24;
     private static final int MIN_MARGIN = 8;
-    private static final int MAX_CONTENT_WIDTH = 920;
+    private static final int MAX_CONTENT_WIDTH = 420;
     private static final int FIELD_GAP = 10;
     private static final int REMOVE_BUTTON_WIDTH = 22;
     private static final List<String> RIDE_STYLE_KEYS = List.of("land", "liquid", "air");
     private static final List<String> LAND_BEHAVIOUR_KEYS = List.of("horse", "minekart", "vehicle");
     private static final List<String> AIR_BEHAVIOUR_KEYS = List.of("bird", "glider", "helicopter", "hover", "jet", "rocket");
     private static final List<String> LIQUID_BEHAVIOUR_KEYS = List.of("boat", "burst", "dolphin", "submarine");
-    private static final List<String> OTHER_BEHAVIOUR_KEYS = List.of("composite");
 
     private static String feedbackMessage = "";
     private static boolean feedbackSuccess = true;
@@ -40,6 +41,8 @@ public final class RidingTweaksConfigScreen extends Screen {
     private Tab selectedTab = Tab.LOCAL;
     private Section selectedSection = Section.GENERAL;
     private int scrollRow;
+    private boolean sectionPickerOpen;
+    private int sectionPickerScroll;
     private boolean knownPickerOpen;
     private int knownPickerScroll;
     private RidingTweaksConfig localDraft;
@@ -58,6 +61,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             selectedTab = Tab.LOCAL;
         }
         knownPickerScroll = Math.max(0, knownPickerScroll);
+        sectionPickerScroll = Math.clamp(sectionPickerScroll, 0, maxSectionPickerScroll());
         scrollRow = Math.clamp(scrollRow, 0, maxScrollRows());
 
         int centerX = this.width / 2;
@@ -70,12 +74,14 @@ public final class RidingTweaksConfigScreen extends Screen {
             addRenderableWidget(Button.builder(tabText(Tab.LOCAL), button -> {
                 selectedTab = Tab.LOCAL;
                 knownPickerOpen = false;
+                sectionPickerOpen = false;
                 rebuild();
             }).bounds(centerX - tabWidth - tabGap / 2, top, tabWidth, 20).build());
 
             addRenderableWidget(Button.builder(tabText(Tab.SERVER), button -> {
                 selectedTab = Tab.SERVER;
                 knownPickerOpen = false;
+                sectionPickerOpen = false;
                 rebuild();
             }).bounds(centerX + tabGap / 2, top, tabWidth, 20).build());
         }
@@ -84,51 +90,59 @@ public final class RidingTweaksConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal("<"), button -> changeSection(-1))
                 .bounds(contentLeft, sectionY, 28, 20)
                 .build());
-        addRenderableWidget(Button.builder(Component.literal(selectedSection.title), button -> {
-        }).bounds(contentLeft + 36, sectionY, Math.max(40, contentWidth - 72), 20).build()).active = false;
+        addRenderableWidget(Button.builder(sectionText(), button -> {
+            sectionPickerOpen = !sectionPickerOpen;
+            knownPickerOpen = false;
+            rebuild();
+        }).bounds(contentLeft + 36, sectionY, Math.max(40, contentWidth - 72), 20).build());
         addRenderableWidget(Button.builder(Component.literal(">"), button -> changeSection(1))
                 .bounds(contentLeft + contentWidth - 28, sectionY, 28, 20)
                 .build());
 
-        switch (selectedSection) {
-            case GENERAL -> addGeneralControls();
-            case STAMINA_LEVEL -> addLevelControls(viewingConfig().stamina);
-            case STAMINA_RIDE_STYLES -> addRideStyleAndBehaviourControls(viewingConfig().stamina);
-            case STAMINA_LABELS -> addLabelControls(viewingConfig().stamina);
-            case STAMINA_SPECIES -> addSpeciesControls(viewingConfig().stamina);
-            case SPEED_LEVEL -> addLevelControls(viewingConfig().speed);
-            case SPEED_RIDE_STYLES -> addRideStyleAndBehaviourControls(viewingConfig().speed);
-            case SPEED_LABELS -> addLabelControls(viewingConfig().speed);
-            case SPEED_SPECIES -> addSpeciesControls(viewingConfig().speed);
-        }
-
-        int bottomY = footerButtonsY();
-        int reloadWidth = Math.max(64, Math.min(120, (contentWidth - FIELD_GAP) / 3));
-        Button reloadButton = Button.builder(Component.literal("Reload"), button -> {
-            if (isSingleplayerSession()) {
-                manager().reloadActiveLocal();
-            } else {
-                manager().reload();
+        if (!knownPickerOpen && !sectionPickerOpen) {
+            switch (selectedSection) {
+                case GENERAL -> addGeneralControls();
+                case STAMINA_LEVEL -> addLevelControls(viewingConfig().stamina);
+                case STAMINA_RIDE_STYLES -> addRideStyleAndBehaviourControls(viewingConfig().stamina);
+                case STAMINA_LABELS -> addLabelControls(viewingConfig().stamina);
+                case STAMINA_SPECIES -> addSpeciesControls(viewingConfig().stamina);
+                case SPEED_LEVEL -> addLevelControls(viewingConfig().speed);
+                case SPEED_RIDE_STYLES -> addRideStyleAndBehaviourControls(viewingConfig().speed);
+                case SPEED_LABELS -> addLabelControls(viewingConfig().speed);
+                case SPEED_SPECIES -> addSpeciesControls(viewingConfig().speed);
             }
-            localDraft = manager().copyLocalConfig();
-            showFeedback("Reloaded local config.", true);
-            rebuild();
-        }).bounds(contentLeft, bottomY, reloadWidth, 20).build();
-        reloadButton.active = selectedTab == Tab.LOCAL;
-        addRenderableWidget(reloadButton);
 
-        Button saveButton = Button.builder(Component.literal("Save"), button -> saveCurrentConfig())
-                .bounds(contentLeft + reloadWidth + FIELD_GAP, bottomY, contentWidth - reloadWidth - FIELD_GAP, 20)
-                .build();
-        saveButton.active = selectedTabIsEditable();
-        addRenderableWidget(saveButton);
+            int bottomY = footerButtonsY();
+            int reloadWidth = Math.max(64, Math.min(120, (contentWidth - FIELD_GAP) / 3));
+            Button reloadButton = Button.builder(Component.literal("Reload"), button -> {
+                if (isSingleplayerSession()) {
+                    manager().reloadActiveLocal();
+                } else {
+                    manager().reload();
+                }
+                localDraft = manager().copyLocalConfig();
+                showFeedback("Reloaded local config.", true);
+                rebuild();
+            }).bounds(contentLeft, bottomY, reloadWidth, 20).build();
+            reloadButton.active = selectedTab == Tab.LOCAL;
+            addRenderableWidget(reloadButton);
 
-        addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
-                .bounds(contentLeft, bottomY + 24, contentWidth, 20)
-                .build());
+            Button saveButton = Button.builder(Component.literal("Save"), button -> saveCurrentConfig())
+                    .bounds(contentLeft + reloadWidth + FIELD_GAP, bottomY, contentWidth - reloadWidth - FIELD_GAP, 20)
+                    .build();
+            saveButton.active = selectedTabIsEditable();
+            addRenderableWidget(saveButton);
+
+            addRenderableWidget(Button.builder(Component.literal("Done"), button -> onClose())
+                    .bounds(contentLeft, bottomY + 24, contentWidth, 20)
+                    .build());
+        }
 
         if (knownPickerOpen) {
             addKnownPickerControls();
+        }
+        if (sectionPickerOpen) {
+            addSectionPickerControls();
         }
     }
 
@@ -138,10 +152,13 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (knownPickerOpen) {
             drawKnownPickerBacking(graphics);
         }
+        if (sectionPickerOpen) {
+            drawSectionPickerBacking(graphics);
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
         drawCenteredStringWithBacking(graphics, this.title.getString(), titleY(), 0xFFFFFF, 0x70000000);
         drawCenteredStringWithBacking(graphics, configSummary(), summaryY(), 0xD0D0D0, 0x70000000);
-        if (!knownPickerOpen) {
+        if (!knownPickerOpen && !sectionPickerOpen) {
             labelLines.forEach(line -> graphics.drawString(this.font, line.text, line.x, line.y, line.color));
             drawMapScrollBar(graphics);
         }
@@ -164,6 +181,16 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (sectionPickerOpen) {
+            sectionPickerScroll = Math.clamp(
+                    sectionPickerScroll - (int) Math.signum(verticalAmount),
+                    0,
+                    maxSectionPickerScroll()
+            );
+            rebuild();
+            return true;
+        }
+
         if (knownPickerOpen) {
             List<String> missing = missingKnownKeys(currentMap(), RidingTweaksConfig.knownCobblemonLabels());
             int maxScroll = Math.max(0, missing.size() - knownPickerRows());
@@ -183,11 +210,26 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (sectionPickerOpen) {
+            handleSectionPickerClick(mouseX, mouseY, button);
+            return true;
+        }
         if (knownPickerOpen) {
             handleKnownPickerClick(mouseX, mouseY, button);
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE && (knownPickerOpen || sectionPickerOpen)) {
+            knownPickerOpen = false;
+            sectionPickerOpen = false;
+            rebuild();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -245,16 +287,10 @@ public final class RidingTweaksConfigScreen extends Screen {
         addHeader("Level Scaling", 0);
         addToggle("Enabled", feature.levelScalingEnabled, value -> feature.levelScalingEnabled = value, centerX, rowY(1), 0);
         if (shouldShowRow(2)) {
-            addIntField("Min Level", () -> scaling.minLevel, value -> scaling.minLevel = value, centerX, rowY(2));
+            addDoubleField("Level 1 Multiplier", () -> scaling.level1Multiplier, value -> scaling.level1Multiplier = value, centerX, rowY(2));
         }
         if (shouldShowRow(3)) {
-            addIntField("Max Level", () -> scaling.maxLevel, value -> scaling.maxLevel = value, centerX, rowY(3));
-        }
-        if (shouldShowRow(4)) {
-            addDoubleField("Min Level Multiplier", () -> scaling.minMultiplier, value -> scaling.minMultiplier = value, centerX, rowY(4));
-        }
-        if (shouldShowRow(5)) {
-            addDoubleField("Max Level Multiplier", () -> scaling.maxMultiplier, value -> scaling.maxMultiplier = value, centerX, rowY(5));
+            addDoubleField("Level 100 Multiplier", () -> scaling.level100Multiplier, value -> scaling.level100Multiplier = value, centerX, rowY(3));
         }
     }
 
@@ -269,11 +305,13 @@ public final class RidingTweaksConfigScreen extends Screen {
         int row = behaviourHeaderRow + 1;
         row = addBehaviourGroup(feature, "Land", LAND_BEHAVIOUR_KEYS, row);
         row = addBehaviourGroup(feature, "Air", AIR_BEHAVIOUR_KEYS, row);
-        row = addBehaviourGroup(feature, "Liquid", LIQUID_BEHAVIOUR_KEYS, row);
-        addBehaviourGroup(feature, "Other", OTHER_BEHAVIOUR_KEYS, row);
+        addBehaviourGroup(feature, "Liquid", LIQUID_BEHAVIOUR_KEYS, row);
     }
 
     private int addBehaviourGroup(RidingTweaksConfig.FeatureTweaks feature, String title, List<String> keys, int startRow) {
+        if (keys.isEmpty()) {
+            return startRow;
+        }
         addSubHeader(title, startRow);
         addMapEntries(feature.behaviourMultipliers, false, startRow + 1, keys);
         return startRow + 1 + keys.size();
@@ -320,6 +358,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (selectedSection.labelSection && !knownKeys.isEmpty()) {
             Button addKnownButton = Button.builder(Component.literal("Add Known"), button -> {
                 knownPickerOpen = true;
+                sectionPickerOpen = false;
                 knownPickerScroll = 0;
                 rebuild();
             }).bounds(contentLeft(), buttonY, addButtonWidth(editableKeys), 20).build();
@@ -495,7 +534,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     private int rowCountForSection() {
         return switch (selectedSection) {
             case GENERAL -> 20;
-            case STAMINA_LEVEL, SPEED_LEVEL -> 6;
+            case STAMINA_LEVEL, SPEED_LEVEL -> 4;
             case STAMINA_RIDE_STYLES, SPEED_RIDE_STYLES -> rideStyleAndBehaviourRowCount();
             case STAMINA_LABELS, SPEED_LABELS -> 3 + currentMap().size();
             case STAMINA_SPECIES, SPEED_SPECIES -> 2 + currentMap().size();
@@ -509,8 +548,7 @@ public final class RidingTweaksConfigScreen extends Screen {
                 + 1
                 + 1 + LAND_BEHAVIOUR_KEYS.size()
                 + 1 + AIR_BEHAVIOUR_KEYS.size()
-                + 1 + LIQUID_BEHAVIOUR_KEYS.size()
-                + 1 + OTHER_BEHAVIOUR_KEYS.size();
+                + 1 + LIQUID_BEHAVIOUR_KEYS.size();
     }
 
     private int maxScrollRows() {
@@ -579,7 +617,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private int valueWidth() {
-        return Math.max(70, Math.min(180, contentWidth() / 4));
+        return Math.max(70, Math.min(140, contentWidth() / 5));
     }
 
     private int labelX() {
@@ -599,7 +637,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private int editableValueWidth() {
-        return Math.max(64, Math.min(120, contentWidth() / 5));
+        return Math.max(64, Math.min(110, contentWidth() / 6));
     }
 
     private int editableValueX() {
@@ -629,6 +667,57 @@ public final class RidingTweaksConfigScreen extends Screen {
         scrollRow = 0;
         knownPickerOpen = false;
         knownPickerScroll = 0;
+        sectionPickerOpen = false;
+        sectionPickerScroll = 0;
+        rebuild();
+    }
+
+    private void addSectionPickerControls() {
+        Section[] sections = Section.values();
+        int pickerWidth = sectionPickerWidth();
+        int left = (this.width - pickerWidth) / 2;
+        int top = sectionPickerTop();
+        int rows = Math.min(sectionPickerRows(), sections.length);
+        sectionPickerScroll = Math.clamp(sectionPickerScroll, 0, Math.max(0, sections.length - rows));
+
+        for (int row = 0; row < rows; row++) {
+            Section section = sections[sectionPickerScroll + row];
+            addRenderableWidget(Button.builder(sectionButtonText(section), button -> {
+                selectedSection = section;
+                scrollRow = 0;
+                knownPickerOpen = false;
+                sectionPickerOpen = false;
+                sectionPickerScroll = 0;
+                rebuild();
+            }).bounds(left, top + row * ROW_HEIGHT, pickerWidth, 20).build());
+        }
+    }
+
+    private void handleSectionPickerClick(double mouseX, double mouseY, int button) {
+        if (button != 0) {
+            return;
+        }
+
+        Section[] sections = Section.values();
+        int pickerWidth = sectionPickerWidth();
+        int left = (this.width - pickerWidth) / 2;
+        int top = sectionPickerTop();
+        int rows = Math.min(sectionPickerRows(), sections.length);
+
+        for (int row = 0; row < rows; row++) {
+            int rowY = top + row * ROW_HEIGHT;
+            if (isWithin(mouseX, mouseY, left, rowY, pickerWidth, 20)) {
+                selectedSection = sections[sectionPickerScroll + row];
+                scrollRow = 0;
+                knownPickerOpen = false;
+                sectionPickerOpen = false;
+                sectionPickerScroll = 0;
+                rebuild();
+                return;
+            }
+        }
+
+        sectionPickerOpen = false;
         rebuild();
     }
 
@@ -694,7 +783,11 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (isWithin(mouseX, mouseY, left, closeY, pickerWidth, 20)) {
             knownPickerOpen = false;
             rebuild();
+            return;
         }
+
+        knownPickerOpen = false;
+        rebuild();
     }
 
     private static boolean isWithin(double mouseX, double mouseY, int x, int y, int width, int height) {
@@ -711,6 +804,23 @@ public final class RidingTweaksConfigScreen extends Screen {
     private int knownPickerRows() {
         int availableRows = (footerButtonsY() - knownPickerTop() - 72) / ROW_HEIGHT;
         return Math.max(1, Math.min(10, availableRows));
+    }
+
+    private int sectionPickerRows() {
+        int availableRows = (footerButtonsY() - sectionPickerTop() - 12) / ROW_HEIGHT;
+        return Math.max(1, Math.min(Section.values().length, availableRows));
+    }
+
+    private int maxSectionPickerScroll() {
+        return Math.max(0, Section.values().length - sectionPickerRows());
+    }
+
+    private int sectionPickerTop() {
+        return sectionY() + 24;
+    }
+
+    private int sectionPickerWidth() {
+        return Math.max(140, Math.min(320, contentWidth() - 72));
     }
 
     private int knownPickerTop() {
@@ -731,8 +841,18 @@ public final class RidingTweaksConfigScreen extends Screen {
         graphics.fill(left + 2, top + 2, right - 2, bottom - 2, 0xE0202020);
     }
 
+    private void drawSectionPickerBacking(GuiGraphics graphics) {
+        int pickerWidth = sectionPickerWidth();
+        int left = (this.width - pickerWidth) / 2 - 8;
+        int top = sectionPickerTop() - 8;
+        int right = left + pickerWidth + 16;
+        int bottom = top + 20 + sectionPickerRows() * ROW_HEIGHT;
+        graphics.fill(left, top, right, bottom, 0xD0000000);
+        graphics.fill(left + 2, top + 2, right - 2, bottom - 2, 0xE0202020);
+    }
+
     private void drawMapScrollBar(GuiGraphics graphics) {
-        if (knownPickerOpen) {
+        if (knownPickerOpen || sectionPickerOpen) {
             return;
         }
 
@@ -758,14 +878,25 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private Component tabText(Tab tab) {
-        return Component.literal((selectedTab == tab ? "> " : "") + tab.displayName);
+        if (selectedTab == tab) {
+            return Component.literal(">> " + tab.displayName + " <<").withStyle(ChatFormatting.YELLOW);
+        }
+        return Component.literal(tab.displayName).withStyle(ChatFormatting.GRAY);
+    }
+
+    private Component sectionText() {
+        return Component.literal((sectionPickerOpen ? "v " : "") + selectedSection.title);
+    }
+
+    private Component sectionButtonText(Section section) {
+        return Component.literal((selectedSection == section ? "> " : "") + section.title);
     }
 
     private String configSummary() {
         RidingTweaksConfig config = viewingConfig();
         return "Version " + config.configVersion
-                + " | stamina x" + formatDouble(config.stamina.levelScaling.minMultiplier)
-                + "-x" + formatDouble(config.stamina.levelScaling.maxMultiplier)
+                + " | stamina x" + formatDouble(config.stamina.levelScaling.level1Multiplier)
+                + "-x" + formatDouble(config.stamina.levelScaling.level100Multiplier)
                 + " | final x" + formatDouble(config.stamina.minFinalMultiplier)
                 + "-x" + formatDouble(config.stamina.maxFinalMultiplier);
     }
@@ -775,7 +906,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             if (manager().canEditServerConfig()) {
                 return "Server config. Save writes to the server and syncs modded clients.";
             }
-            return "Server config. Read-only for this player.";
+            return "Server config. Read-only.";
         }
         if (isSingleplayerSession()) {
             return "";

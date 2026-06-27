@@ -72,20 +72,19 @@ public final class RidingTweaksConfig {
 
     private static Map<String, Double> allBehaviourMultipliers() {
         Map<String, Double> defaults = new LinkedHashMap<>();
+        defaults.put("horse", 1.0D);
+        defaults.put("minekart", 1.0D);
+        defaults.put("vehicle", 1.0D);
         defaults.put("bird", 1.0D);
-        defaults.put("boat", 1.0D);
-        defaults.put("burst", 1.0D);
-        defaults.put("composite", 1.0D);
-        defaults.put("dolphin", 1.0D);
         defaults.put("glider", 1.0D);
         defaults.put("helicopter", 1.0D);
-        defaults.put("horse", 1.0D);
         defaults.put("hover", 1.0D);
         defaults.put("jet", 1.0D);
-        defaults.put("minekart", 1.0D);
         defaults.put("rocket", 1.0D);
+        defaults.put("boat", 1.0D);
+        defaults.put("burst", 1.0D);
+        defaults.put("dolphin", 1.0D);
         defaults.put("submarine", 1.0D);
-        defaults.put("vehicle", 1.0D);
         return defaults;
     }
 
@@ -162,7 +161,6 @@ public final class RidingTweaksConfig {
 
     public static final class SpeedTweaks extends FeatureTweaks {
         public SpeedTweaks() {
-            enabled = false;
             rideStyleMultipliers = allRideStyleMultipliers();
             behaviourMultipliers = allBehaviourMultipliers();
             labelMultipliers = defaultLabelMultipliers();
@@ -180,14 +178,14 @@ public final class RidingTweaksConfig {
         public boolean ridingMultipliersEnabled = true;
         public boolean labelMultipliersEnabled = true;
         public boolean speciesOverridesEnabled = true;
+        public double minFinalMultiplier = 0.01D;
+        public double maxFinalMultiplier = 10.0D;
         public LevelScaling levelScaling = new LevelScaling();
         public Map<String, Double> rideStyleMultipliers = emptyMultipliers();
         public Map<String, Double> behaviourMultipliers = emptyMultipliers();
+        public double defaultLabelMultiplier = 1.0D;
         public Map<String, Double> labelMultipliers = emptyMultipliers();
         public Map<String, Double> speciesOverrides = emptyMultipliers();
-        public double defaultLabelMultiplier = 1.0D;
-        public double minFinalMultiplier = 0.01D;
-        public double maxFinalMultiplier = 10.0D;
 
         private void sanitize(boolean includeKnownKeys) {
             rideStyleMultipliers = sanitizeMultiplierMap(rideStyleMultipliers, allRideStyleMultipliers(), includeKnownKeys);
@@ -205,16 +203,13 @@ public final class RidingTweaksConfig {
     }
 
     public static final class LevelScaling {
-        public int minLevel = 1;
-        public int maxLevel = 100;
-        public double minMultiplier = 1.0D;
-        public double maxMultiplier = 1.0D;
+        public double level1Multiplier = 1.0D;
+
+        public double level100Multiplier = 1.0D;
 
         private void sanitize() {
-            minLevel = Math.max(1, minLevel);
-            maxLevel = Math.max(1, maxLevel);
-            minMultiplier = sanitizeMultiplier(minMultiplier, 1.0D);
-            maxMultiplier = sanitizeMultiplier(maxMultiplier, 1.0D);
+            level1Multiplier = sanitizeMultiplier(level1Multiplier, 1.0D);
+            level100Multiplier = sanitizeMultiplier(level100Multiplier, 1.0D);
         }
     }
 }

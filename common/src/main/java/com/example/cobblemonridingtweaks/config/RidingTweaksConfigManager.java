@@ -241,16 +241,10 @@ public final class RidingTweaksConfigManager {
         }
 
         RidingTweaksConfig.LevelScaling scaling = feature.levelScaling;
-        if (scaling.minLevel == scaling.maxLevel) {
-            return level >= scaling.maxLevel ? scaling.maxMultiplier : scaling.minMultiplier;
-        }
-
-        int lowLevel = Math.min(scaling.minLevel, scaling.maxLevel);
-        int highLevel = Math.max(scaling.minLevel, scaling.maxLevel);
-        double lowMultiplier = scaling.minLevel <= scaling.maxLevel ? scaling.minMultiplier : scaling.maxMultiplier;
-        double highMultiplier = scaling.minLevel <= scaling.maxLevel ? scaling.maxMultiplier : scaling.minMultiplier;
-        double progress = Math.clamp((level - lowLevel) / (double) (highLevel - lowLevel), 0.0D, 1.0D);
-        return lowMultiplier + progress * (highMultiplier - lowMultiplier);
+        double progress = (Math.max(1, level) - 1) / 99.0D;
+        double multiplier = scaling.level1Multiplier
+                + progress * (scaling.level100Multiplier - scaling.level1Multiplier);
+        return Math.max(0.01D, multiplier);
     }
 
     private double speciesOrLabelMultiplier(
@@ -460,8 +454,8 @@ public final class RidingTweaksConfigManager {
         if (feature != null) {
             RidingTweaksConfig.LevelScaling scaling = feature.levelScaling;
             if (scaling != null) {
-                warnIfInvalid(section + ".levelScaling.minMultiplier", scaling.minMultiplier);
-                warnIfInvalid(section + ".levelScaling.maxMultiplier", scaling.maxMultiplier);
+                warnIfInvalid(section + ".levelScaling.level1Multiplier", scaling.level1Multiplier);
+                warnIfInvalid(section + ".levelScaling.level100Multiplier", scaling.level100Multiplier);
             }
         }
     }
