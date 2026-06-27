@@ -156,6 +156,12 @@ public final class RidingTweaksConfigScreen extends Screen {
             drawSectionPickerBacking(graphics);
         }
         super.render(graphics, mouseX, mouseY, partialTick);
+        if (knownPickerOpen) {
+            drawKnownPickerScrollBar(graphics);
+        }
+        if (sectionPickerOpen) {
+            drawSectionPickerScrollBar(graphics);
+        }
         drawCenteredStringWithBacking(graphics, this.title.getString(), titleY(), 0xFFFFFF, 0x70000000);
         drawCenteredStringWithBacking(graphics, configSummary(), summaryY(), 0xD0D0D0, 0x70000000);
         if (!knownPickerOpen && !sectionPickerOpen) {
@@ -313,7 +319,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             return startRow;
         }
         addSubHeader(title, startRow);
-        addMapEntries(feature.behaviourMultipliers, false, startRow + 1, keys);
+        addMapEntries(feature.behaviourMultipliers, false, startRow + 1, keys, 24);
         return startRow + 1 + keys.size();
     }
 
@@ -337,6 +343,10 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addMapEntries(Map<String, Double> multipliers, boolean editableKeys, int startRow, List<String> keys) {
+        addMapEntries(multipliers, editableKeys, startRow, keys, 0);
+    }
+
+    private void addMapEntries(Map<String, Double> multipliers, boolean editableKeys, int startRow, List<String> keys, int indent) {
         int centerX = this.width / 2;
         for (int index = 0; index < keys.size(); index++) {
             String key = keys.get(index);
@@ -348,7 +358,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             if (editableKeys) {
                 addEditableMapRow(multipliers, key, value, centerX, rowY(row));
             } else {
-                addMapValueRow(multipliers, key, value, centerX, rowY(row));
+                addMapValueRow(multipliers, key, value, centerX, rowY(row), indent);
             }
         }
     }
@@ -435,10 +445,14 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addMapValueRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
+        addMapValueRow(multipliers, key, value, centerX, y, 0);
+    }
+
+    private void addMapValueRow(Map<String, Double> multipliers, String key, double value, int centerX, int y, int indent) {
         EditBox valueBox = textBox(valueX(), y, valueWidth(), formatDouble(value));
         valueBox.setResponder(text -> parseMultiplier(key, text, parsed -> multipliers.put(key, parsed)));
         addRenderableWidget(valueBox);
-        addRowLabel(key, labelX(), y + 6);
+        addRowLabel(key, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
     private void addEditableMapRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
@@ -851,6 +865,37 @@ public final class RidingTweaksConfigScreen extends Screen {
         graphics.fill(left + 2, top + 2, right - 2, bottom - 2, 0xE0202020);
     }
 
+    private void drawKnownPickerScrollBar(GuiGraphics graphics) {
+        List<String> missing = missingKnownKeys(currentMap(), RidingTweaksConfig.knownCobblemonLabels());
+        int totalRows = missing.size();
+        int visibleRows = Math.min(knownPickerRows(), totalRows);
+        if (totalRows <= visibleRows) {
+            return;
+        }
+
+        int pickerWidth = knownPickerWidth();
+        int left = (this.width - pickerWidth) / 2;
+        int trackX = left + pickerWidth + 4;
+        int trackTop = knownPickerTop() + 24;
+        int trackHeight = Math.max(1, visibleRows * ROW_HEIGHT - 4);
+        drawVerticalScrollBar(graphics, trackX, trackTop, trackHeight, totalRows, visibleRows, knownPickerScroll);
+    }
+
+    private void drawSectionPickerScrollBar(GuiGraphics graphics) {
+        int totalRows = Section.values().length;
+        int visibleRows = Math.min(sectionPickerRows(), totalRows);
+        if (totalRows <= visibleRows) {
+            return;
+        }
+
+        int pickerWidth = sectionPickerWidth();
+        int left = (this.width - pickerWidth) / 2;
+        int trackX = left + pickerWidth + 4;
+        int trackTop = sectionPickerTop();
+        int trackHeight = Math.max(1, visibleRows * ROW_HEIGHT - 4);
+        drawVerticalScrollBar(graphics, trackX, trackTop, trackHeight, totalRows, visibleRows, sectionPickerScroll);
+    }
+
     private void drawMapScrollBar(GuiGraphics graphics) {
         if (knownPickerOpen || sectionPickerOpen) {
             return;
@@ -865,9 +910,25 @@ public final class RidingTweaksConfigScreen extends Screen {
         int trackX = Math.min(this.width - 6, contentRight() + 4);
         int trackTop = rowsTop();
         int trackHeight = Math.max(1, visibleRows * ROW_HEIGHT - 4);
+        drawVerticalScrollBar(graphics, trackX, trackTop, trackHeight, totalRows, visibleRows, scrollRow);
+    }
+
+    private void drawVerticalScrollBar(
+            GuiGraphics graphics,
+            int trackX,
+            int trackTop,
+            int trackHeight,
+            int totalRows,
+            int visibleRows,
+            int scroll
+    ) {
+        if (totalRows <= visibleRows) {
+            return;
+        }
+
         int handleHeight = Math.max(18, trackHeight * visibleRows / totalRows);
-        int maxScroll = totalRows - visibleRows;
-        int handleY = trackTop + (trackHeight - handleHeight) * scrollRow / maxScroll;
+        int maxScroll = Math.max(1, totalRows - visibleRows);
+        int handleY = trackTop + (trackHeight - handleHeight) * Math.clamp(scroll, 0, maxScroll) / maxScroll;
         graphics.fill(trackX, trackTop, trackX + 4, trackTop + trackHeight, 0x90000000);
         graphics.fill(trackX, handleY, trackX + 4, handleY + handleHeight, 0xFFD0D0D0);
     }
