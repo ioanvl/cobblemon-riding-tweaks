@@ -9,6 +9,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -38,6 +39,7 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private final Screen parent;
     private final List<LabelLine> labelLines = new ArrayList<>();
+    private final List<TooltipArea> tooltipAreas = new ArrayList<>();
     private Tab selectedTab = Tab.LOCAL;
     private Section selectedSection = Section.GENERAL;
     private int scrollRow;
@@ -56,6 +58,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     @Override
     protected void init() {
         labelLines.clear();
+        tooltipAreas.clear();
         ensureDrafts();
         if (selectedTab == Tab.SERVER && !showServerTabs()) {
             selectedTab = Tab.LOCAL;
@@ -183,6 +186,7 @@ public final class RidingTweaksConfigScreen extends Screen {
                     0xA0000000
             );
         }
+        drawLabelTooltip(graphics, mouseX, mouseY);
     }
 
     @Override
@@ -252,35 +256,51 @@ public final class RidingTweaksConfigScreen extends Screen {
     private void addGeneralControls() {
         RidingTweaksConfig config = viewingConfig();
         int centerX = this.width / 2;
-        addToggle("Mod Enabled", config.enabled, value -> config.enabled = value, centerX, rowY(0), 0);
-        addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(1), 0);
+        addToggle("Mod Enabled", config.enabled, value -> config.enabled = value, centerX, rowY(0), 0,
+                "Turns this config on or off. Off leaves stamina and speed at neutral x1.");
+        addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(1), 0,
+                "Writes extra config and sync details to the log.");
 
         addHeader("Stamina", 2);
-        addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(3), 0);
+        addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(3), 0,
+                "Master switch for stamina multipliers. Off keeps Cobblemon's normal stamina drain.");
         addStackingModeToggle("Stacking Mode", config.stamina, centerX, rowY(4), 0);
-        addToggle("Level Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(5), 18);
-        addToggle("Ride Styles", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(6), 18);
-        addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(7), 18);
-        addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(8), 18);
+        addToggle("Level Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(5), 18,
+                "Scales stamina by Pokemon level between the level 1 and level 100 multipliers.");
+        addToggle("Ride Styles", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(6), 18,
+                "Applies stamina multipliers for the active ride style and behaviour, such as air/jet or land/horse.");
+        addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(7), 18,
+                "Applies stamina multipliers from Cobblemon form labels like legendary, mega, or custom labels.");
+        addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(8), 18,
+                "Applies per-species stamina overrides. Species overrides take priority over labels.");
         if (shouldShowRow(9)) {
-            addDoubleField("Min Final Multiplier", () -> config.stamina.minFinalMultiplier, value -> config.stamina.minFinalMultiplier = value, centerX, rowY(9), 18);
+            addDoubleField("Min Final Multiplier", () -> config.stamina.minFinalMultiplier, value -> config.stamina.minFinalMultiplier = value, centerX, rowY(9), 18,
+                    "Lowest allowed final stamina multiplier after all enabled stamina factors are combined.");
         }
         if (shouldShowRow(10)) {
-            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(10), 18);
+            addDoubleField("Max Final Multiplier", () -> config.stamina.maxFinalMultiplier, value -> config.stamina.maxFinalMultiplier = value, centerX, rowY(10), 18,
+                    "Highest allowed final stamina multiplier after all enabled stamina factors are combined.");
         }
 
         addHeader("Speed", 11);
-        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(12), 0);
+        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(12), 0,
+                "Master switch for speed multipliers. Off keeps Cobblemon's normal riding speed.");
         addStackingModeToggle("Stacking Mode", config.speed, centerX, rowY(13), 0);
-        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(14), 18);
-        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(15), 18);
-        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(16), 18);
-        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(17), 18);
+        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(14), 18,
+                "Scales speed by Pokemon level between the level 1 and level 100 multipliers.");
+        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(15), 18,
+                "Applies speed multipliers for the active ride style and behaviour, such as air/jet or land/horse.");
+        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(16), 18,
+                "Applies speed multipliers from Cobblemon form labels like legendary, mega, or custom labels.");
+        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(17), 18,
+                "Applies per-species speed overrides. Species overrides take priority over labels.");
         if (shouldShowRow(18)) {
-            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(18), 18);
+            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(18), 18,
+                    "Lowest allowed final speed multiplier after all enabled speed factors are combined.");
         }
         if (shouldShowRow(19)) {
-            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(19), 18);
+            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(19), 18,
+                    "Highest allowed final speed multiplier after all enabled speed factors are combined.");
         }
 
         addHeader("Version", 20);
@@ -405,6 +425,18 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addToggle(String label, boolean currentValue, Consumer<Boolean> setter, int centerX, int y, int indent) {
+        addToggle(label, currentValue, setter, centerX, y, indent, null);
+    }
+
+    private void addToggle(
+            String label,
+            boolean currentValue,
+            Consumer<Boolean> setter,
+            int centerX,
+            int y,
+            int indent,
+            String tooltip
+    ) {
         if (y < rowsTop() || y >= rowViewportBottom()) {
             return;
         }
@@ -413,7 +445,9 @@ public final class RidingTweaksConfigScreen extends Screen {
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
+        setTooltip(button, tooltip);
         addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
         addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
@@ -426,7 +460,10 @@ public final class RidingTweaksConfigScreen extends Screen {
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
+        String tooltip = stackingModeTooltip();
+        setTooltip(button, tooltip);
         addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
         addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
@@ -453,10 +490,42 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addDoubleField(String label, Supplier<Double> getter, Consumer<Double> setter, int centerX, int y, int indent) {
+        addDoubleField(label, getter, setter, centerX, y, indent, null);
+    }
+
+    private void addDoubleField(
+            String label,
+            Supplier<Double> getter,
+            Consumer<Double> setter,
+            int centerX,
+            int y,
+            int indent,
+            String tooltip
+    ) {
         EditBox box = textBox(valueX(), y, valueWidth(), formatDouble(getter.get()));
         box.setResponder(value -> parseMultiplier(label, value, setter));
+        setTooltip(box, tooltip);
         addRenderableWidget(box);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
         addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addTooltipArea(int x, int y, int width, int height, String tooltip) {
+        if (tooltip != null && !tooltip.isBlank() && width > 0 && height > 0) {
+            tooltipAreas.add(new TooltipArea(x, y, width, height, tooltip.lines().map(line -> (Component) Component.literal(line)).toList()));
+        }
+    }
+
+    private void setTooltip(Button button, String tooltip) {
+        if (tooltip != null && !tooltip.isBlank()) {
+            button.setTooltip(Tooltip.create(Component.literal(tooltip)));
+        }
+    }
+
+    private void setTooltip(EditBox box, String tooltip) {
+        if (tooltip != null && !tooltip.isBlank()) {
+            box.setTooltip(Tooltip.create(Component.literal(tooltip)));
+        }
     }
 
     private void addMapValueRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
@@ -948,6 +1017,15 @@ public final class RidingTweaksConfigScreen extends Screen {
         graphics.fill(trackX, handleY, trackX + 4, handleY + handleHeight, 0xFFD0D0D0);
     }
 
+    private void drawLabelTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        for (TooltipArea area : tooltipAreas) {
+            if (isWithin(mouseX, mouseY, area.x, area.y, area.width, area.height)) {
+                graphics.renderComponentTooltip(this.font, area.lines, mouseX, mouseY);
+                return;
+            }
+        }
+    }
+
     private void rebuild() {
         clearWidgets();
         init();
@@ -1092,6 +1170,11 @@ public final class RidingTweaksConfigScreen extends Screen {
                 : RidingTweaksConfig.STACKING_MODE_STACKING;
     }
 
+    private static String stackingModeTooltip() {
+        return "Additive adds each change from x1. Example: 1.6 and 1.6 => 1 + (0.6 + 0.6) = 2.2\n"
+                + "Stacking multiplies all active factors together. Example: 1.6 and 1.6 => 1.6 x 1.6 = 2.56";
+    }
+
     private static String formatDouble(double value) {
         if (value == Math.rint(value)) {
             return String.valueOf((long) value);
@@ -1112,6 +1195,9 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private record LabelLine(String text, int x, int y, int color) {
+    }
+
+    private record TooltipArea(int x, int y, int width, int height, List<Component> lines) {
     }
 
     private enum Tab {
