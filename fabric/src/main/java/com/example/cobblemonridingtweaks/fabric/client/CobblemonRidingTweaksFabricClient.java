@@ -25,9 +25,13 @@ public final class CobblemonRidingTweaksFabricClient implements ClientModInitial
                 context.client().execute(() -> ConfigClientHandlers.showEditResult(payload))
         );
 
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) ->
-                CobblemonRidingTweaks.configManager().awaitServerConfig()
-        );
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            if (client.hasSingleplayerServer()) {
+                CobblemonRidingTweaks.configManager().clearServerConfig();
+            } else {
+                CobblemonRidingTweaks.configManager().awaitServerConfig();
+            }
+        });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
                 CobblemonRidingTweaks.configManager().clearServerConfig()

@@ -4,6 +4,7 @@ import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.example.cobblemonridingtweaks.client.RidingTweaksConfigScreen;
 import com.example.cobblemonridingtweaks.net.ConfigClientHandlers;
 import com.example.cobblemonridingtweaks.neoforge.net.CobblemonRidingTweaksNeoForgeNetworking;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -40,7 +41,11 @@ public final class CobblemonRidingTweaksNeoForgeClient {
     }
 
     private static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
-        CobblemonRidingTweaks.configManager().awaitServerConfig();
+        if (Minecraft.getInstance().hasSingleplayerServer()) {
+            CobblemonRidingTweaks.configManager().clearServerConfig();
+        } else {
+            CobblemonRidingTweaks.configManager().awaitServerConfig();
+        }
     }
 
     private static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {

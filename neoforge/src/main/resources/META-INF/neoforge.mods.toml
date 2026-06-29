@@ -7,6 +7,9 @@ modId="${mod_id}"
 version="${version}"
 displayName="${mod_name}"
 authors="${mod_author}"
+credits="${credits}"
+displayURL="${mod_homepage}"
+issueTrackerURL="${mod_issues}"
 logoFile="assets/cobblemon_riding_tweaks/icon.png"
 description='''${description}'''
 

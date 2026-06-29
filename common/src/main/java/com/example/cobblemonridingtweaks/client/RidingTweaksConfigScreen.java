@@ -118,13 +118,14 @@ public final class RidingTweaksConfigScreen extends Screen {
             int bottomY = footerButtonsY();
             int reloadWidth = Math.max(64, Math.min(120, (contentWidth - FIELD_GAP) / 3));
             Button reloadButton = Button.builder(Component.literal("Reload"), button -> {
-                if (isSingleplayerSession()) {
+                if (!isActiveMultiplayerSession()) {
                     manager().reloadActiveLocal();
+                    showFeedback(isSingleplayerSession() ? "Reloaded and applied config." : "Reloaded config.", true);
                 } else {
                     manager().reload();
+                    showFeedback("Reloaded local config.", true);
                 }
                 localDraft = manager().copyLocalConfig();
-                showFeedback("Reloaded local config.", true);
                 rebuild();
             }).bounds(contentLeft, bottomY, reloadWidth, 20).build();
             reloadButton.active = selectedTab == Tab.LOCAL;
@@ -176,12 +177,23 @@ public final class RidingTweaksConfigScreen extends Screen {
             drawCenteredStringWithBacking(graphics, status, statusY(), 0xE0E0E0, 0x85000000);
         }
 
+        String unsavedChanges = unsavedChangesText();
+        if (!unsavedChanges.isBlank()) {
+            drawCenteredStringWithBacking(
+                    graphics,
+                    unsavedChanges,
+                    unsavedChangesY(!status.isBlank()),
+                    0xFFE080,
+                    0xA0000000
+            );
+        }
+
         String feedback = feedbackText();
         if (!feedback.isBlank()) {
             drawCenteredStringWithBacking(
                     graphics,
                     feedback,
-                    feedbackY(),
+                    feedbackY(!unsavedChanges.isBlank(), !status.isBlank()),
                     feedbackSuccess ? 0x80FF80 : 0xFF8080,
                     0xA0000000
             );
@@ -270,15 +282,15 @@ public final class RidingTweaksConfigScreen extends Screen {
         addHeader("Stamina", 2);
         addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(3), 0,
                 "Master switch for stamina multipliers. Off keeps Cobblemon's normal stamina drain.");
-        addStackingModeToggle("Stacking Mode", config.stamina, centerX, rowY(4), 0);
-        addToggle("Level Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(5), 18,
-                "Scales stamina by Pokemon level between the level 1 and level 100 multipliers.");
-        addToggle("Ride Styles", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(6), 18,
+        addStackingModeToggle("Multiplier Mode", config.stamina, centerX, rowY(4), 0);
+        addToggle("Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(5), 18,
+                "Enables stamina scaling options. Currently scales by Pokemon level between the level 1 and level 100 multipliers.");
+        addToggle("Ride Styles & Behaviours", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(6), 18,
                 "Applies stamina multipliers for the active ride style and behaviour, such as air/jet or land/horse.");
         addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(7), 18,
-                "Applies stamina multipliers from Cobblemon form labels like legendary, mega, or custom labels.");
+                "Applies stamina multipliers from Cobblemon form labels. Label Behaviour controls highest or stacking.");
         addToggle("Species", config.stamina.speciesOverridesEnabled, value -> config.stamina.speciesOverridesEnabled = value, centerX, rowY(8), 18,
-                "Applies per-species stamina overrides. Species overrides take priority over labels.");
+                "Applies per-species stamina overrides. Species Behaviour controls override or stacking.");
         if (shouldShowRow(9)) {
             addDoubleField("Min Final Multiplier", () -> config.stamina.minFinalMultiplier, value -> config.stamina.minFinalMultiplier = value, centerX, rowY(9), 18,
                     "Lowest allowed final stamina multiplier after all enabled stamina factors are combined.");
@@ -291,15 +303,15 @@ public final class RidingTweaksConfigScreen extends Screen {
         addHeader("Speed", 11);
         addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(12), 0,
                 "Master switch for speed multipliers. Off keeps Cobblemon's normal riding speed.");
-        addStackingModeToggle("Stacking Mode", config.speed, centerX, rowY(13), 0);
-        addToggle("Level Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(14), 18,
-                "Scales speed by Pokemon level between the level 1 and level 100 multipliers.");
-        addToggle("Ride Styles", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(15), 18,
+        addStackingModeToggle("Multiplier Mode", config.speed, centerX, rowY(13), 0);
+        addToggle("Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(14), 18,
+                "Enables speed scaling options. Currently scales by Pokemon level between the level 1 and level 100 multipliers.");
+        addToggle("Ride Styles & Behaviours", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(15), 18,
                 "Applies speed multipliers for the active ride style and behaviour, such as air/jet or land/horse.");
         addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(16), 18,
-                "Applies speed multipliers from Cobblemon form labels like legendary, mega, or custom labels.");
+                "Applies speed multipliers from Cobblemon form labels. Label Behaviour controls highest or stacking.");
         addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(17), 18,
-                "Applies per-species speed overrides. Species overrides take priority over labels.");
+                "Applies per-species speed overrides. Species Behaviour controls override or stacking.");
         if (shouldShowRow(18)) {
             addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(18), 18,
                     "Lowest allowed final speed multiplier after all enabled speed factors are combined.");
@@ -318,8 +330,8 @@ public final class RidingTweaksConfigScreen extends Screen {
     private void addLevelControls(RidingTweaksConfig.FeatureTweaks feature) {
         RidingTweaksConfig.LevelScaling scaling = feature.levelScaling;
         int centerX = this.width / 2;
-        addHeader("Level Scaling", 0);
-        addToggle("Enabled", feature.levelScalingEnabled, value -> feature.levelScalingEnabled = value, centerX, rowY(1), 0);
+        addToggle("Enabled", feature.levelScalingEnabled, value -> feature.levelScalingEnabled = value, centerX, rowY(0), 0);
+        addHeader("Level Scaling", 1);
         if (shouldShowRow(2)) {
             addDoubleField("Level 1 Multiplier", () -> scaling.level1Multiplier, value -> scaling.level1Multiplier = value, centerX, rowY(2));
         }
@@ -330,7 +342,7 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private void addRideStyleAndBehaviourControls(RidingTweaksConfig.FeatureTweaks feature) {
         int centerX = this.width / 2;
-        addToggle("Ride Styles & Behaviours", feature.ridingMultipliersEnabled, value -> feature.ridingMultipliersEnabled = value, centerX, rowY(0), 0);
+        addToggle("Enabled", feature.ridingMultipliersEnabled, value -> feature.ridingMultipliersEnabled = value, centerX, rowY(0), 0);
         addHeader("Ride Styles", 1);
         addMapEntries(feature.rideStyleMultipliers, false, 2, RIDE_STYLE_KEYS);
 
@@ -353,20 +365,22 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private void addLabelControls(RidingTweaksConfig.FeatureTweaks feature) {
         int centerX = this.width / 2;
-        addToggle("Label Multipliers", feature.labelMultipliersEnabled, value -> feature.labelMultipliersEnabled = value, centerX, rowY(0), 0);
-        if (shouldShowRow(1)) {
-            addDoubleField("Default Multiplier", () -> feature.defaultLabelMultiplier, value -> feature.defaultLabelMultiplier = value, centerX, rowY(1));
+        addToggle("Enabled", feature.labelMultipliersEnabled, value -> feature.labelMultipliersEnabled = value, centerX, rowY(0), 0);
+        addLabelModeToggle("Label Behaviour", feature, centerX, rowY(1), 0);
+        if (shouldShowRow(2)) {
+            addDoubleField("Default Multiplier", () -> feature.defaultLabelMultiplier, value -> feature.defaultLabelMultiplier = value, centerX, rowY(2));
         }
-        addHeader("Labels", 2);
-        addMapEntries(feature.labelMultipliers, true, 3, new ArrayList<>(feature.labelMultipliers.keySet()));
+        addHeader("Labels", 3);
+        addMapEntries(feature.labelMultipliers, true, 4, new ArrayList<>(feature.labelMultipliers.keySet()));
         addMapButtons(feature.labelMultipliers, RidingTweaksConfig.knownCobblemonLabels(), true);
     }
 
     private void addSpeciesControls(RidingTweaksConfig.FeatureTweaks feature) {
         int centerX = this.width / 2;
-        addToggle("Species Overrides", feature.speciesOverridesEnabled, value -> feature.speciesOverridesEnabled = value, centerX, rowY(0), 0);
-        addHeader("Overrides", 1);
-        addMapEntries(feature.speciesOverrides, true, 2, new ArrayList<>(feature.speciesOverrides.keySet()));
+        addToggle("Enabled", feature.speciesOverridesEnabled, value -> feature.speciesOverridesEnabled = value, centerX, rowY(0), 0);
+        addSpeciesModeToggle("Species Behaviour", feature, centerX, rowY(1), 0);
+        addHeader("Overrides", 2);
+        addMapEntries(feature.speciesOverrides, true, 3, new ArrayList<>(feature.speciesOverrides.keySet()));
         addMapButtons(feature.speciesOverrides, List.of(), true);
     }
 
@@ -466,7 +480,39 @@ public final class RidingTweaksConfigScreen extends Screen {
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
-        String tooltip = stackingModeTooltip();
+        List<Component> tooltip = stackingModeTooltip();
+        setTooltip(button, tooltip);
+        addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addLabelModeToggle(String label, RidingTweaksConfig.FeatureTweaks feature, int centerX, int y, int indent) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+        Button button = Button.builder(Component.literal(labelModeText(feature.labelMode)), pressed -> {
+            feature.labelMode = nextLabelMode(feature.labelMode);
+            rebuild();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
+        button.active = selectedTabIsEditable();
+        List<Component> tooltip = labelModeTooltip();
+        setTooltip(button, tooltip);
+        addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addSpeciesModeToggle(String label, RidingTweaksConfig.FeatureTweaks feature, int centerX, int y, int indent) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+        Button button = Button.builder(Component.literal(speciesModeText(feature.speciesMode)), pressed -> {
+            feature.speciesMode = nextSpeciesMode(feature.speciesMode);
+            rebuild();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
+        button.active = selectedTabIsEditable();
+        List<Component> tooltip = speciesModeTooltip();
         setTooltip(button, tooltip);
         addRenderableWidget(button);
         addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
@@ -522,9 +568,21 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
     }
 
+    private void addTooltipArea(int x, int y, int width, int height, List<Component> tooltip) {
+        if (tooltip != null && !tooltip.isEmpty() && width > 0 && height > 0) {
+            tooltipAreas.add(new TooltipArea(x, y, width, height, tooltip));
+        }
+    }
+
     private void setTooltip(Button button, String tooltip) {
         if (tooltip != null && !tooltip.isBlank()) {
             button.setTooltip(Tooltip.create(Component.literal(tooltip)));
+        }
+    }
+
+    private void setTooltip(Button button, List<Component> tooltip) {
+        if (tooltip != null && !tooltip.isEmpty()) {
+            button.setTooltip(Tooltip.create(componentLines(tooltip)));
         }
     }
 
@@ -532,6 +590,17 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (tooltip != null && !tooltip.isBlank()) {
             box.setTooltip(Tooltip.create(Component.literal(tooltip)));
         }
+    }
+
+    private static Component componentLines(List<Component> lines) {
+        Component result = Component.empty();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                result = result.copy().append(Component.literal("\n"));
+            }
+            result = result.copy().append(lines.get(i));
+        }
+        return result;
     }
 
     private void addMapValueRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
@@ -641,7 +710,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             case STAMINA_LEVEL, SPEED_LEVEL -> 4;
             case STAMINA_RIDE_STYLES, SPEED_RIDE_STYLES -> rideStyleAndBehaviourRowCount();
             case STAMINA_LABELS, SPEED_LABELS -> 3 + currentMap().size();
-            case STAMINA_SPECIES, SPEED_SPECIES -> 2 + currentMap().size();
+            case STAMINA_SPECIES, SPEED_SPECIES -> 3 + currentMap().size();
         };
     }
 
@@ -695,8 +764,13 @@ public final class RidingTweaksConfigScreen extends Screen {
         return Math.max(rowsTop() + 4, footerButtonsY() - 16);
     }
 
-    private int feedbackY() {
-        return Math.max(rowsTop() + 4, statusY() - 16);
+    private int unsavedChangesY(boolean statusVisible) {
+        return statusVisible ? Math.max(rowsTop() + 4, statusY() - 14) : statusY();
+    }
+
+    private int feedbackY(boolean unsavedChangesVisible, boolean statusVisible) {
+        int anchorY = unsavedChangesVisible ? unsavedChangesY(statusVisible) : statusY();
+        return Math.max(rowsTop() + 4, anchorY - 16);
     }
 
     private int rowViewportBottom() {
@@ -1068,7 +1142,7 @@ public final class RidingTweaksConfigScreen extends Screen {
             }
             return "Server config. Read-only.";
         }
-        if (isSingleplayerSession()) {
+        if (!isActiveMultiplayerSession()) {
             return "";
         }
         if (manager().isServerConfigActive()) {
@@ -1080,12 +1154,37 @@ public final class RidingTweaksConfigScreen extends Screen {
         return fitText(manager().path().toString(), this.width - 40);
     }
 
+    private String unsavedChangesText() {
+        if (!hasUnsavedChanges()) {
+            return "";
+        }
+        if (isSingleplayerSession()) {
+            return "Unsaved changes. Click Save to store and apply them.";
+        }
+        if (!isActiveMultiplayerSession()) {
+            return "Unsaved changes. Click Save to store them.";
+        }
+        String scope = selectedTab == Tab.SERVER ? "[Server]" : "[Local]";
+        String action = selectedTab == Tab.SERVER && manager().canEditServerConfig() ? "store and apply" : "store";
+        return "Unsaved changes to the " + scope + " config. Click Save to " + action + " them.";
+    }
+
+    private boolean hasUnsavedChanges() {
+        String draftJson = manager().toJson(viewingConfig());
+        String savedJson = selectedTab == Tab.SERVER ? manager().activeConfigJson() : manager().localConfigJson();
+        return !draftJson.equals(savedJson);
+    }
+
     private boolean showServerTabs() {
-        return manager().isServerConfigActive() && !isSingleplayerSession();
+        return manager().isServerConfigActive() && isActiveMultiplayerSession();
     }
 
     private boolean isSingleplayerSession() {
         return this.minecraft != null && this.minecraft.hasSingleplayerServer();
+    }
+
+    private boolean isActiveMultiplayerSession() {
+        return this.minecraft != null && this.minecraft.level != null && !isSingleplayerSession();
     }
 
     private RidingTweaksConfig viewingConfig() {
@@ -1104,13 +1203,14 @@ public final class RidingTweaksConfigScreen extends Screen {
             serverConfigUpdateSender.send(manager().toJson(draft));
             return;
         }
-        if (isSingleplayerSession()) {
+        if (!isActiveMultiplayerSession()) {
             manager().replaceAndSaveActiveLocal(draft);
+            showFeedback(isSingleplayerSession() ? "Saved and applied config." : "Saved config.", true);
         } else {
             manager().replaceAndSave(draft);
+            showFeedback("Saved local config.", true);
         }
         localDraft = manager().copyLocalConfig();
-        showFeedback("Saved and reloaded local config.", true);
         rebuild();
     }
 
@@ -1167,18 +1267,59 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private static String stackingModeText(String mode) {
-        return RidingTweaksConfig.STACKING_MODE_STACKING.equals(normalizeKeyOrBlank(mode)) ? "Stacking" : "Additive";
+        return RidingTweaksConfig.STACKING_MODE_MULTIPLICATIVE.equals(normalizeKeyOrBlank(mode)) ? "Multiplicative" : "Additive";
     }
 
     private static String nextStackingMode(String mode) {
-        return RidingTweaksConfig.STACKING_MODE_STACKING.equals(normalizeKeyOrBlank(mode))
+        return RidingTweaksConfig.STACKING_MODE_MULTIPLICATIVE.equals(normalizeKeyOrBlank(mode))
                 ? RidingTweaksConfig.STACKING_MODE_ADDITIVE
-                : RidingTweaksConfig.STACKING_MODE_STACKING;
+                : RidingTweaksConfig.STACKING_MODE_MULTIPLICATIVE;
     }
 
-    private static String stackingModeTooltip() {
-        return "Additive adds each change from x1. Example: 1.6 and 1.6 => 1 + (0.6 + 0.6) = 2.2\n"
-                + "Stacking multiplies all active factors together. Example: 1.6 and 1.6 => 1.6 x 1.6 = 2.56";
+    private static String labelModeText(String mode) {
+        return RidingTweaksConfig.LABEL_MODE_HIGHEST.equals(normalizeKeyOrBlank(mode)) ? "Highest" : "Stacking";
+    }
+
+    private static String nextLabelMode(String mode) {
+        return RidingTweaksConfig.LABEL_MODE_HIGHEST.equals(normalizeKeyOrBlank(mode))
+                ? RidingTweaksConfig.LABEL_MODE_STACKING
+                : RidingTweaksConfig.LABEL_MODE_HIGHEST;
+    }
+
+    private static String speciesModeText(String mode) {
+        return RidingTweaksConfig.SPECIES_MODE_STACKING.equals(normalizeKeyOrBlank(mode)) ? "Stacking" : "Override";
+    }
+
+    private static String nextSpeciesMode(String mode) {
+        return RidingTweaksConfig.SPECIES_MODE_STACKING.equals(normalizeKeyOrBlank(mode))
+                ? RidingTweaksConfig.SPECIES_MODE_OVERRIDE
+                : RidingTweaksConfig.SPECIES_MODE_STACKING;
+    }
+
+    private static List<Component> stackingModeTooltip() {
+        return List.of(
+                Component.literal("Additive adds each change from x1."),
+                Component.literal("Example: 1.6 and 1.6 => 1 + (0.6 + 0.6) = 2.2").withStyle(ChatFormatting.GRAY),
+                Component.empty(),
+                Component.literal("Multiplicative multiplies all active factors together."),
+                Component.literal("Example: 1.6 and 1.6 => 1.6 x 1.6 = 2.56").withStyle(ChatFormatting.GRAY)
+        );
+    }
+
+    private static List<Component> labelModeTooltip() {
+        return List.of(
+                Component.literal("Highest uses only the largest matching label multiplier."),
+                Component.literal("Stacking uses every matching label multiplier."),
+                Component.literal("Stacking follows the Additive/Multiplicative multiplier mode from the General tab.").withStyle(ChatFormatting.GRAY)
+        );
+    }
+
+    private static List<Component> speciesModeTooltip() {
+        return List.of(
+                Component.literal("Override uses the species multiplier instead of label multipliers."),
+                Component.literal("Stacking adds the species multiplier on top of label multipliers."),
+                Component.literal("Stacking follows the Additive/Multiplicative multiplier mode from the General tab.").withStyle(ChatFormatting.GRAY)
+        );
     }
 
     private static String formatDouble(double value) {
@@ -1225,11 +1366,11 @@ public final class RidingTweaksConfigScreen extends Screen {
     private enum Section {
         GENERAL("General", false, false, false),
         STAMINA_LEVEL("Stamina - Scaling", false, false, false),
-        STAMINA_RIDE_STYLES("Stamina - Ride Styles", false, false, false),
+        STAMINA_RIDE_STYLES("Stamina - Ride Styles & Behaviours", false, false, false),
         STAMINA_LABELS("Stamina - Labels", true, true, false),
         STAMINA_SPECIES("Stamina - Species", true, false, true),
         SPEED_LEVEL("Speed - Scaling", false, false, false),
-        SPEED_RIDE_STYLES("Speed - Ride Styles", false, false, false),
+        SPEED_RIDE_STYLES("Speed - Ride Styles & Behaviours", false, false, false),
         SPEED_LABELS("Speed - Labels", true, true, false),
         SPEED_SPECIES("Speed - Species", true, false, true);
 

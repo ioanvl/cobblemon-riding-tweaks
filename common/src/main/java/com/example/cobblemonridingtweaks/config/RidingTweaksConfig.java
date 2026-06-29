@@ -8,7 +8,13 @@ import java.util.Map;
 public final class RidingTweaksConfig {
     public static final String SUPPORTED_CONFIG_VERSION = "1.0.0";
     public static final String STACKING_MODE_ADDITIVE = "additive";
-    public static final String STACKING_MODE_STACKING = "stacking";
+    public static final String STACKING_MODE_MULTIPLICATIVE = "multiplicative";
+    public static final String LABEL_MODE_HIGHEST = "highest";
+    public static final String LABEL_MODE_STACKING = "stacking";
+    public static final String SPECIES_MODE_OVERRIDE = "override";
+    public static final String SPECIES_MODE_STACKING = "stacking";
+    private static final String STACKING_MODE_STACKING_ALIAS = "stacking";
+    private static final String SPECIES_MODE_REPLACE_ALIAS = "replace";
 
     public String configVersion = SUPPORTED_CONFIG_VERSION;
     public boolean enabled = true;
@@ -48,7 +54,32 @@ public final class RidingTweaksConfig {
         }
 
         String normalized = normalizeKey(value);
-        return STACKING_MODE_STACKING.equals(normalized) ? STACKING_MODE_STACKING : STACKING_MODE_ADDITIVE;
+        return STACKING_MODE_MULTIPLICATIVE.equals(normalized) || STACKING_MODE_STACKING_ALIAS.equals(normalized)
+                ? STACKING_MODE_MULTIPLICATIVE
+                : STACKING_MODE_ADDITIVE;
+    }
+
+    private static String sanitizeLabelMode(String value) {
+        if (value == null) {
+            return LABEL_MODE_HIGHEST;
+        }
+
+        return LABEL_MODE_STACKING.equals(normalizeKey(value)) ? LABEL_MODE_STACKING : LABEL_MODE_HIGHEST;
+    }
+
+    private static String sanitizeSpeciesMode(String value) {
+        if (value == null) {
+            return SPECIES_MODE_OVERRIDE;
+        }
+
+        String normalized = normalizeKey(value);
+        if (SPECIES_MODE_STACKING.equals(normalized)) {
+            return SPECIES_MODE_STACKING;
+        }
+        if (SPECIES_MODE_OVERRIDE.equals(normalized) || SPECIES_MODE_REPLACE_ALIAS.equals(normalized)) {
+            return SPECIES_MODE_OVERRIDE;
+        }
+        return SPECIES_MODE_OVERRIDE;
     }
 
     private static Map<String, Double> sanitizeMultiplierMap(
@@ -189,7 +220,9 @@ public final class RidingTweaksConfig {
         public boolean levelScalingEnabled = true;
         public boolean ridingMultipliersEnabled = true;
         public boolean labelMultipliersEnabled = true;
+        public String labelMode = LABEL_MODE_HIGHEST;
         public boolean speciesOverridesEnabled = true;
+        public String speciesMode = SPECIES_MODE_OVERRIDE;
         public double minFinalMultiplier = 0.01D;
         public double maxFinalMultiplier = 10.0D;
         public LevelScaling levelScaling = new LevelScaling();
@@ -201,6 +234,8 @@ public final class RidingTweaksConfig {
 
         private void sanitize(boolean includeKnownKeys) {
             stackingMode = sanitizeStackingMode(stackingMode);
+            labelMode = sanitizeLabelMode(labelMode);
+            speciesMode = sanitizeSpeciesMode(speciesMode);
             rideStyleMultipliers = sanitizeMultiplierMap(rideStyleMultipliers, allRideStyleMultipliers(), includeKnownKeys);
             behaviourMultipliers = sanitizeMultiplierMap(behaviourMultipliers, allBehaviourMultipliers(), includeKnownKeys);
             labelMultipliers = sanitizeMultiplierMap(labelMultipliers, defaultLabelMultipliers(), includeKnownKeys);

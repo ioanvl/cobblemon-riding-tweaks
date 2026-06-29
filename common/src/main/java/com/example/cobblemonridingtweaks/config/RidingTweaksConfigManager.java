@@ -26,6 +26,7 @@ public final class RidingTweaksConfigManager {
             .disableHtmlEscaping()
             .setPrettyPrinting()
             .create();
+    private static final String UNKNOWN_CONFIG_VERSION = "0.0.0";
 
     private final Path path;
     private RidingTweaksConfig localConfig;
@@ -138,12 +139,13 @@ public final class RidingTweaksConfigManager {
     }
 
     public void applyServerConfig(String json, boolean editable) {
-        RidingTweaksConfig serverConfig = fromJson(json);
+        SyncedConfigParseResult parseResult = fromJson(json);
+        RidingTweaksConfig serverConfig = parseResult.config();
         warnForInvalidNumbers(serverConfig);
         serverConfig.sanitize();
         activeConfig = serverConfig;
         serverConfigActive = true;
-        serverConfigEditable = editable;
+        serverConfigEditable = editable && parseResult.editable();
         awaitingServerConfig = false;
         logDebugNotes(serverConfig);
         LOGGER.info("Applied server-authoritative {} config", CobblemonRidingTweaks.MOD_NAME);
@@ -280,7 +282,9 @@ public final class RidingTweaksConfigManager {
             Double speciesMultiplier = speciesMultiplier(feature, speciesId);
             if (speciesMultiplier != null) {
                 factors.add(speciesMultiplier);
-                return;
+                if (RidingTweaksConfig.SPECIES_MODE_OVERRIDE.equals(feature.speciesMode)) {
+                    return;
+                }
             }
         }
 
@@ -288,23 +292,26 @@ public final class RidingTweaksConfigManager {
             return;
         }
 
-        boolean matchedLabel = false;
+        List<Double> labelFactors = new ArrayList<>();
         if (labels != null) {
             for (String label : labels) {
                 Double configuredMultiplier = keyedMultiplierOrNull(feature.labelMultipliers, label);
                 if (configuredMultiplier != null) {
-                    factors.add(configuredMultiplier);
-                    matchedLabel = true;
+                    labelFactors.add(configuredMultiplier);
                 }
             }
         }
-        if (!matchedLabel) {
+        if (labelFactors.isEmpty()) {
             factors.add(feature.defaultLabelMultiplier);
+        } else if (RidingTweaksConfig.LABEL_MODE_HIGHEST.equals(feature.labelMode)) {
+            factors.add(labelFactors.stream().mapToDouble(Double::doubleValue).max().orElse(1.0D));
+        } else {
+            factors.addAll(labelFactors);
         }
     }
 
     private double combineMultipliers(RidingTweaksConfig.FeatureTweaks feature, List<Double> factors) {
-        if (RidingTweaksConfig.STACKING_MODE_STACKING.equals(feature.stackingMode)) {
+        if (RidingTweaksConfig.STACKING_MODE_MULTIPLICATIVE.equals(feature.stackingMode)) {
             double multiplier = 1.0D;
             for (double factor : factors) {
                 multiplier *= factor;
@@ -375,33 +382,33 @@ public final class RidingTweaksConfigManager {
         }
     }
 
-    private static RidingTweaksConfig fromJson(String json) {
+    private static SyncedConfigParseResult fromJson(String json) {
         try {
             String configVersion = readConfigVersion(json);
-            if (isNewerVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
+            if (!isCompatibleConfigVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
                 LOGGER.error(
-                        "Synced {} config version {} is newer than this client supports ({}); using vanilla behaviour",
+                        "Synced {} config version {} is not compatible with this client ({}); using vanilla behaviour",
                         CobblemonRidingTweaks.MOD_NAME,
                         configVersion,
                         RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
                 );
-                return vanillaConfig();
+                return new SyncedConfigParseResult(vanillaConfig(), false);
             }
 
             RidingTweaksConfig config = GSON.fromJson(json, RidingTweaksConfig.class);
-            return config == null ? new RidingTweaksConfig() : config;
-        } catch (JsonSyntaxException exception) {
+            return new SyncedConfigParseResult(config == null ? new RidingTweaksConfig() : config, true);
+        } catch (JsonSyntaxException | IllegalStateException | UnsupportedOperationException exception) {
             LOGGER.error("Failed to parse synced {} config; using vanilla behaviour", CobblemonRidingTweaks.MOD_NAME, exception);
-            return vanillaConfig();
+            return new SyncedConfigParseResult(vanillaConfig(), false);
         }
     }
 
     private static RidingTweaksConfig submittedConfigFromJson(String json) {
         try {
             String configVersion = readConfigVersion(json);
-            if (isNewerVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
+            if (!isCompatibleConfigVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
                 LOGGER.warn(
-                        "Rejected submitted {} config version {}; this server supports up to {}",
+                        "Rejected submitted {} config version {}; this server requires config major/minor compatible with {}",
                         CobblemonRidingTweaks.MOD_NAME,
                         configVersion,
                         RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
@@ -411,7 +418,7 @@ public final class RidingTweaksConfigManager {
 
             RidingTweaksConfig config = GSON.fromJson(json, RidingTweaksConfig.class);
             return config == null ? null : config;
-        } catch (JsonSyntaxException exception) {
+        } catch (JsonSyntaxException | IllegalStateException | UnsupportedOperationException exception) {
             LOGGER.warn("Rejected malformed submitted {} config", CobblemonRidingTweaks.MOD_NAME, exception);
             return null;
         }
@@ -420,29 +427,30 @@ public final class RidingTweaksConfigManager {
     private static String readConfigVersion(String json) {
         JsonElement element = JsonParser.parseString(json);
         if (!element.isJsonObject()) {
-            return RidingTweaksConfig.SUPPORTED_CONFIG_VERSION;
+            return UNKNOWN_CONFIG_VERSION;
         }
 
         JsonObject object = element.getAsJsonObject();
         JsonElement version = object.get("configVersion");
         if (version == null || version.isJsonNull()) {
-            return RidingTweaksConfig.SUPPORTED_CONFIG_VERSION;
+            return UNKNOWN_CONFIG_VERSION;
+        }
+        if (!version.isJsonPrimitive()) {
+            LOGGER.warn(
+                    "Invalid {} config version value {}; treating it as {}",
+                    CobblemonRidingTweaks.MOD_NAME,
+                    version,
+                    UNKNOWN_CONFIG_VERSION
+            );
+            return UNKNOWN_CONFIG_VERSION;
         }
         return version.getAsString();
     }
 
-    private static boolean isNewerVersion(String candidate, String supported) {
+    private static boolean isCompatibleConfigVersion(String candidate, String supported) {
         int[] candidateParts = parseVersion(candidate);
         int[] supportedParts = parseVersion(supported);
-        for (int i = 0; i < 3; i++) {
-            if (candidateParts[i] > supportedParts[i]) {
-                return true;
-            }
-            if (candidateParts[i] < supportedParts[i]) {
-                return false;
-            }
-        }
-        return false;
+        return candidateParts[0] == supportedParts[0] && candidateParts[1] == supportedParts[1];
     }
 
     private static int[] parseVersion(String version) {
@@ -472,6 +480,9 @@ public final class RidingTweaksConfigManager {
     private static RidingTweaksConfig copyConfig(RidingTweaksConfig config) {
         RidingTweaksConfig copy = GSON.fromJson(GSON.toJson(config), RidingTweaksConfig.class);
         return copy == null ? new RidingTweaksConfig().sanitize() : copy.sanitize();
+    }
+
+    private record SyncedConfigParseResult(RidingTweaksConfig config, boolean editable) {
     }
 
     private static void warnForInvalidNumbers(RidingTweaksConfig config) {
