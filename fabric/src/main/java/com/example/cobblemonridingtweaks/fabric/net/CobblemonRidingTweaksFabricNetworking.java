@@ -1,6 +1,9 @@
 package com.example.cobblemonridingtweaks.fabric.net;
 
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
+import com.example.cobblemonridingtweaks.net.ConfigEditResultPayload;
+import com.example.cobblemonridingtweaks.net.ConfigSyncPayload;
+import com.example.cobblemonridingtweaks.net.ConfigUpdatePayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;

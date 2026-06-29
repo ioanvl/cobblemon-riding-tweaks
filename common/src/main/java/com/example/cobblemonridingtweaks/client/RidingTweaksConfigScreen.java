@@ -1,10 +1,8 @@
-package com.example.cobblemonridingtweaks.fabric.client;
+package com.example.cobblemonridingtweaks.client;
 
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.example.cobblemonridingtweaks.config.RidingTweaksConfig;
 import com.example.cobblemonridingtweaks.config.RidingTweaksConfigManager;
-import com.example.cobblemonridingtweaks.fabric.net.ConfigUpdatePayload;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -36,6 +34,8 @@ public final class RidingTweaksConfigScreen extends Screen {
     private static String feedbackMessage = "";
     private static boolean feedbackSuccess = true;
     private static long feedbackUntilMillis;
+    private static ServerConfigUpdateSender serverConfigUpdateSender = json ->
+            showFeedback("Server config editing is not available on this loader.", false);
 
     private final Screen parent;
     private final List<LabelLine> labelLines = new ArrayList<>();
@@ -251,6 +251,12 @@ public final class RidingTweaksConfigScreen extends Screen {
         feedbackMessage = message == null ? "" : message;
         feedbackSuccess = success;
         feedbackUntilMillis = System.currentTimeMillis() + FEEDBACK_VISIBLE_MILLIS;
+    }
+
+    public static void setServerConfigUpdateSender(ServerConfigUpdateSender sender) {
+        serverConfigUpdateSender = sender == null
+                ? json -> showFeedback("Server config editing is not available on this loader.", false)
+                : sender;
     }
 
     private void addGeneralControls() {
@@ -1095,7 +1101,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         RidingTweaksConfig draft = viewingConfig().sanitize();
         if (selectedTab == Tab.SERVER) {
             showFeedback("Saving server config...", true);
-            ClientPlayNetworking.send(new ConfigUpdatePayload(manager().toJson(draft)));
+            serverConfigUpdateSender.send(manager().toJson(draft));
             return;
         }
         if (isSingleplayerSession()) {
@@ -1198,6 +1204,11 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private record TooltipArea(int x, int y, int width, int height, List<Component> lines) {
+    }
+
+    @FunctionalInterface
+    public interface ServerConfigUpdateSender {
+        void send(String configJson);
     }
 
     private enum Tab {

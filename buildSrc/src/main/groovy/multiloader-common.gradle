@@ -116,7 +116,13 @@ processResources {
     filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/mods.toml', 'META-INF/neoforge.mods.toml', '*.mixins.json']) {
         expand expandProps
     }
+
+    from(rootProject.file('icon.png')) {
+        into "assets/${mod_id}"
+    }
+
     inputs.properties(expandProps)
+    inputs.file(rootProject.file('icon.png'))
 }
 
 publishing {

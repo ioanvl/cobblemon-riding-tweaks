@@ -8,6 +8,7 @@
     "${mod_author}"
   ],
   "license": "${license}",
+  "icon": "assets/cobblemon_riding_tweaks/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [

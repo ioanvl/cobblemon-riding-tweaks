@@ -1,4 +1,4 @@
-package com.example.cobblemonridingtweaks.fabric.net;
+package com.example.cobblemonridingtweaks.net;
 
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import net.minecraft.network.RegistryFriendlyByteBuf;
