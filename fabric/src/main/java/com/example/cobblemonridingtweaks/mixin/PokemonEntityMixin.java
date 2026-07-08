@@ -4,9 +4,12 @@ import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviour;
 import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviourSettings;
 import com.cobblemon.mod.common.api.riding.behaviour.RidingBehaviourState;
 import com.cobblemon.mod.common.api.riding.behaviour.types.composite.CompositeState;
+import com.cobblemon.mod.common.api.pokemon.stats.Stats;
 import com.cobblemon.mod.common.entity.pokemon.PokemonEntity;
+import com.cobblemon.mod.common.pokemon.Nature;
 import com.cobblemon.mod.common.pokemon.Pokemon;
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
+import com.example.cobblemonridingtweaks.config.RidingTweaksConfig;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
@@ -43,14 +46,26 @@ public abstract class PokemonEntityMixin {
         }
 
         Pokemon pokemon = vehicle.getPokemon();
+        var configManager = CobblemonRidingTweaks.configManager();
+        Stats staminaStat = cobblemonRidingTweaks$stat(configManager.staminaStatKey());
+        Nature naturalNature = pokemon.getNature();
+        Nature effectiveNature = pokemon.getEffectiveNature();
+        boolean statHasNature = !Stats.HP.equals(staminaStat);
         float originalDrain = staminaBefore - staminaAfter;
-        float scaledDrain = CobblemonRidingTweaks.configManager().scaleDrain(
+        float scaledDrain = configManager.scaleDrain(
                 originalDrain,
                 pokemon.getLevel(),
                 cobblemonRidingTweaks$labels(pokemon),
                 cobblemonRidingTweaks$speciesId(pokemon),
                 cobblemonRidingTweaks$rideStyle(behaviour, settings, state),
-                cobblemonRidingTweaks$behaviourKey(behaviour, state)
+                cobblemonRidingTweaks$behaviourKey(behaviour, state),
+                pokemon.getIvs().getOrDefault(staminaStat),
+                pokemon.getIvs().getEffectiveBattleIV(staminaStat),
+                pokemon.getEvs().getOrDefault(staminaStat),
+                statHasNature && naturalNature != null && staminaStat.equals(naturalNature.getIncreasedStat()),
+                statHasNature && naturalNature != null && staminaStat.equals(naturalNature.getDecreasedStat()),
+                statHasNature && effectiveNature != null && staminaStat.equals(effectiveNature.getIncreasedStat()),
+                statHasNature && effectiveNature != null && staminaStat.equals(effectiveNature.getDecreasedStat())
         );
         float scaledStamina = Math.max(0.0F, Math.min(1.0F, staminaBefore - scaledDrain));
 
@@ -129,10 +144,8 @@ public abstract class PokemonEntityMixin {
     ) {
         float speed = behaviour.speed(settings, state, vehicle, driver);
         Pokemon pokemon = vehicle.getPokemon();
-        double multiplier = CobblemonRidingTweaks.configManager().speedMultiplier(
-                pokemon.getLevel(),
-                cobblemonRidingTweaks$labels(pokemon),
-                cobblemonRidingTweaks$speciesId(pokemon),
+        double multiplier = cobblemonRidingTweaks$speedMultiplier(
+                pokemon,
                 cobblemonRidingTweaks$rideStyle(behaviour, settings, state),
                 cobblemonRidingTweaks$behaviourKey(behaviour, state)
         );
@@ -150,10 +163,8 @@ public abstract class PokemonEntityMixin {
         Vec3 velocity = behaviour.velocity(settings, state, vehicle, driver, input);
         Pokemon pokemon = vehicle.getPokemon();
         String rideStyle = cobblemonRidingTweaks$rideStyle(behaviour, settings, state);
-        double multiplier = CobblemonRidingTweaks.configManager().speedMultiplier(
-                pokemon.getLevel(),
-                cobblemonRidingTweaks$labels(pokemon),
-                cobblemonRidingTweaks$speciesId(pokemon),
+        double multiplier = cobblemonRidingTweaks$speedMultiplier(
+                pokemon,
                 rideStyle,
                 cobblemonRidingTweaks$behaviourKey(behaviour, state)
         );
@@ -165,6 +176,36 @@ public abstract class PokemonEntityMixin {
             return velocity.multiply(multiplier, 1.0D, multiplier);
         }
         return velocity.scale(multiplier);
+    }
+
+    private static double cobblemonRidingTweaks$speedMultiplier(Pokemon pokemon, String rideStyle, String behaviour) {
+        Nature naturalNature = pokemon.getNature();
+        Nature effectiveNature = pokemon.getEffectiveNature();
+        return CobblemonRidingTweaks.configManager().speedMultiplier(
+                pokemon.getLevel(),
+                cobblemonRidingTweaks$labels(pokemon),
+                cobblemonRidingTweaks$speciesId(pokemon),
+                rideStyle,
+                behaviour,
+                pokemon.getIvs().getOrDefault(Stats.SPEED),
+                pokemon.getIvs().getEffectiveBattleIV(Stats.SPEED),
+                pokemon.getEvs().getOrDefault(Stats.SPEED),
+                naturalNature != null && Stats.SPEED.equals(naturalNature.getIncreasedStat()),
+                naturalNature != null && Stats.SPEED.equals(naturalNature.getDecreasedStat()),
+                effectiveNature != null && Stats.SPEED.equals(effectiveNature.getIncreasedStat()),
+                effectiveNature != null && Stats.SPEED.equals(effectiveNature.getDecreasedStat())
+        );
+    }
+
+    private static Stats cobblemonRidingTweaks$stat(String statKey) {
+        return switch (RidingTweaksConfig.sanitizeStatKey(statKey)) {
+            case RidingTweaksConfig.STAT_ATTACK -> Stats.ATTACK;
+            case RidingTweaksConfig.STAT_DEFENCE -> Stats.DEFENCE;
+            case RidingTweaksConfig.STAT_SPECIAL_ATTACK -> Stats.SPECIAL_ATTACK;
+            case RidingTweaksConfig.STAT_SPECIAL_DEFENCE -> Stats.SPECIAL_DEFENCE;
+            case RidingTweaksConfig.STAT_SPEED -> Stats.SPEED;
+            default -> Stats.HP;
+        };
     }
 
     private static Collection<String> cobblemonRidingTweaks$labels(Pokemon pokemon) {

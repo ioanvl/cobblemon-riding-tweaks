@@ -9,7 +9,10 @@ Cobblemon Riding Tweaks is a Minecraft 1.21.1 mod for Cobblemon 1.7.3. It lets s
 - Stamina drain multipliers for Cobblemon riding.
 - Speed multipliers for ridden movement.
 - Separate settings for stamina and speed.
+- Global stamina and speed multipliers for quick overall tuning.
 - Level scaling between a level 1 multiplier and a level 100 multiplier, with linear extrapolation beyond level 100.
+- Optional stat scaling for speed, and configurable stat-based stamina scaling.
+- Stat scaling can use IVs, EVs, natures, mints, and hyper training.
 - Ride style multipliers for land, liquid, and air.
 - Behaviour multipliers for all Cobblemon riding behaviours, such as horse, bird, jet, boat, dolphin, submarine, and more.
 - Label multipliers for Cobblemon form labels such as legendary, mythical, ultra beast, mega, primal, gmax, and any other labels.
@@ -17,6 +20,7 @@ Cobblemon Riding Tweaks is a Minecraft 1.21.1 mod for Cobblemon 1.7.3. It lets s
 - Additive or multiplicative multiplier combining.
 - Label behaviour modes: highest matching label or stacking labels.
 - Species behaviour modes: override labels or stack with labels.
+- Config reset option for returning the current config to neutral `x1` values before saving.
 - Config screen on Fabric through Mod Menu, and on NeoForge through the built-in Mods screen, with server editing available to admins.
 
 ## Multiplayer Behavior
@@ -43,8 +47,8 @@ Patch-level config version differences are allowed for safe default/list changes
 
 Install the correct jar for your loader:
 
-- Fabric: `cobblemon_riding_tweaks-fabric-1.21.1-1.0.0.jar`
-- NeoForge: `cobblemon_riding_tweaks-neoforge-1.21.1-1.0.0.jar`
+- Fabric: `cobblemon_riding_tweaks-fabric-1.21.1-1.1.0.jar`
+- NeoForge: `cobblemon_riding_tweaks-neoforge-1.21.1-1.1.0.jar`
 
 For multiplayer servers, install the mod on the server and on clients that should use the configured riding tweaks.
 
@@ -58,7 +62,7 @@ config/cobblemon-riding-tweaks.json
 
 Most values are multipliers. `1.0` means no change, values above `1.0` make stamina last longer or speed faster, and values below `1.0` make stamina drain faster or speed slower. The mod keeps multiplier values at or above `0.01` internally, so zero or negative entries do not break the math.
 
-The config screen edits a draft. Changes are only written when you press **Save**.
+Changes in the config screen are only written when you press **Save**. The reset option also waits for **Save**, so you can review the neutral values before storing them.
 
 ## Commands
 

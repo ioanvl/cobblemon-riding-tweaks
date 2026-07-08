@@ -73,6 +73,13 @@ public final class RidingTweaksConfigManager {
         return serverConfigActive && serverConfigEditable;
     }
 
+    public String staminaStatKey() {
+        if (activeConfig == null || activeConfig.stamina == null || activeConfig.stamina.statScaling == null) {
+            return RidingTweaksConfig.STAT_HP;
+        }
+        return RidingTweaksConfig.sanitizeStatKey(activeConfig.stamina.statScaling.stat);
+    }
+
     public Path path() {
         return path;
     }
@@ -139,6 +146,10 @@ public final class RidingTweaksConfigManager {
     }
 
     public void applyServerConfig(String json, boolean editable) {
+        applyServerConfigWithResult(json, editable);
+    }
+
+    public ServerConfigApplyResult applyServerConfigWithResult(String json, boolean editable) {
         SyncedConfigParseResult parseResult = fromJson(json);
         RidingTweaksConfig serverConfig = parseResult.config();
         warnForInvalidNumbers(serverConfig);
@@ -149,6 +160,11 @@ public final class RidingTweaksConfigManager {
         awaitingServerConfig = false;
         logDebugNotes(serverConfig);
         LOGGER.info("Applied server-authoritative {} config", CobblemonRidingTweaks.MOD_NAME);
+        return new ServerConfigApplyResult(
+                parseResult.versionMismatch(),
+                parseResult.configVersion(),
+                RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
+        );
     }
 
     public void clearServerConfig() {
@@ -197,13 +213,34 @@ public final class RidingTweaksConfigManager {
             Collection<String> labels,
             String speciesId,
             String rideStyle,
-            String behaviour
+            String behaviour,
+            int naturalHpIv,
+            int effectiveHpIv,
+            int hpEv,
+            boolean naturalStatIncreasingNature,
+            boolean naturalStatDecreasingNature,
+            boolean effectiveStatIncreasingNature,
+            boolean effectiveStatDecreasingNature
     ) {
         if (!activeConfig.enabled || !activeConfig.stamina.enabled) {
             return 1.0D;
         }
 
-        return configuredMultiplier(activeConfig.stamina, level, labels, speciesId, rideStyle, behaviour);
+        return configuredStaminaMultiplier(
+                activeConfig.stamina,
+                level,
+                labels,
+                speciesId,
+                rideStyle,
+                behaviour,
+                naturalHpIv,
+                effectiveHpIv,
+                hpEv,
+                naturalStatIncreasingNature,
+                naturalStatDecreasingNature,
+                effectiveStatIncreasingNature,
+                effectiveStatDecreasingNature
+        );
     }
 
     public double speedMultiplier(
@@ -211,13 +248,34 @@ public final class RidingTweaksConfigManager {
             Collection<String> labels,
             String speciesId,
             String rideStyle,
-            String behaviour
+            String behaviour,
+            int naturalSpeedIv,
+            int effectiveSpeedIv,
+            int speedEv,
+            boolean naturalSpeedIncreasingNature,
+            boolean naturalSpeedDecreasingNature,
+            boolean effectiveSpeedIncreasingNature,
+            boolean effectiveSpeedDecreasingNature
     ) {
         if (!activeConfig.enabled || !activeConfig.speed.enabled) {
             return 1.0D;
         }
 
-        return configuredMultiplier(activeConfig.speed, level, labels, speciesId, rideStyle, behaviour);
+        return configuredSpeedMultiplier(
+                activeConfig.speed,
+                level,
+                labels,
+                speciesId,
+                rideStyle,
+                behaviour,
+                naturalSpeedIv,
+                effectiveSpeedIv,
+                speedEv,
+                naturalSpeedIncreasingNature,
+                naturalSpeedDecreasingNature,
+                effectiveSpeedIncreasingNature,
+                effectiveSpeedDecreasingNature
+        );
     }
 
     public float scaleDrain(
@@ -226,9 +284,29 @@ public final class RidingTweaksConfigManager {
             Collection<String> labels,
             String speciesId,
             String rideStyle,
-            String behaviour
+            String behaviour,
+            int naturalHpIv,
+            int effectiveHpIv,
+            int hpEv,
+            boolean naturalStatIncreasingNature,
+            boolean naturalStatDecreasingNature,
+            boolean effectiveStatIncreasingNature,
+            boolean effectiveStatDecreasingNature
     ) {
-        return (float) (originalDrain / enduranceMultiplier(level, labels, speciesId, rideStyle, behaviour));
+        return (float) (originalDrain / enduranceMultiplier(
+                level,
+                labels,
+                speciesId,
+                rideStyle,
+                behaviour,
+                naturalHpIv,
+                effectiveHpIv,
+                hpEv,
+                naturalStatIncreasingNature,
+                naturalStatDecreasingNature,
+                effectiveStatIncreasingNature,
+                effectiveStatDecreasingNature
+        ));
     }
 
     private double levelMultiplier(RidingTweaksConfig.FeatureTweaks feature, int level) {
@@ -243,7 +321,67 @@ public final class RidingTweaksConfigManager {
         return Math.max(0.01D, multiplier);
     }
 
-    private double configuredMultiplier(
+    private double configuredStaminaMultiplier(
+            RidingTweaksConfig.StaminaTweaks feature,
+            int level,
+            Collection<String> labels,
+            String speciesId,
+            String rideStyle,
+            String behaviour,
+            int naturalHpIv,
+            int effectiveHpIv,
+            int hpEv,
+            boolean naturalStatIncreasingNature,
+            boolean naturalStatDecreasingNature,
+            boolean effectiveStatIncreasingNature,
+            boolean effectiveStatDecreasingNature
+    ) {
+        List<Double> factors = configuredFactors(feature, level, labels, speciesId, rideStyle, behaviour);
+        addNatureStatFactor(
+                factors,
+                feature,
+                feature.statScaling,
+                !RidingTweaksConfig.STAT_HP.equals(RidingTweaksConfig.sanitizeStatKey(feature.statScaling.stat)),
+                naturalStatIncreasingNature,
+                naturalStatDecreasingNature,
+                effectiveStatIncreasingNature,
+                effectiveStatDecreasingNature
+        );
+        addStatIvEvFactors(factors, feature, feature.statScaling, naturalHpIv, effectiveHpIv, hpEv);
+        return clampFinalMultiplier(feature, combineMultipliers(feature, factors));
+    }
+
+    private double configuredSpeedMultiplier(
+            RidingTweaksConfig.SpeedTweaks feature,
+            int level,
+            Collection<String> labels,
+            String speciesId,
+            String rideStyle,
+            String behaviour,
+            int naturalSpeedIv,
+            int effectiveSpeedIv,
+            int speedEv,
+            boolean naturalSpeedIncreasingNature,
+            boolean naturalSpeedDecreasingNature,
+            boolean effectiveSpeedIncreasingNature,
+            boolean effectiveSpeedDecreasingNature
+    ) {
+        List<Double> factors = configuredFactors(feature, level, labels, speciesId, rideStyle, behaviour);
+        addSpeedStatFactors(
+                factors,
+                feature,
+                naturalSpeedIv,
+                effectiveSpeedIv,
+                speedEv,
+                naturalSpeedIncreasingNature,
+                naturalSpeedDecreasingNature,
+                effectiveSpeedIncreasingNature,
+                effectiveSpeedDecreasingNature
+        );
+        return clampFinalMultiplier(feature, combineMultipliers(feature, factors));
+    }
+
+    private List<Double> configuredFactors(
             RidingTweaksConfig.FeatureTweaks feature,
             int level,
             Collection<String> labels,
@@ -252,10 +390,104 @@ public final class RidingTweaksConfigManager {
             String behaviour
     ) {
         List<Double> factors = new ArrayList<>();
+        factors.add(feature.globalMultiplier);
         factors.add(levelMultiplier(feature, level));
         addRidingFactors(factors, feature, rideStyle, behaviour);
         addSpeciesOrLabelFactors(factors, feature, labels, speciesId);
-        return clampFinalMultiplier(feature, combineMultipliers(feature, factors));
+        return factors;
+    }
+
+    private void addSpeedStatFactors(
+            List<Double> factors,
+            RidingTweaksConfig.SpeedTweaks feature,
+            int naturalSpeedIv,
+            int effectiveSpeedIv,
+            int speedEv,
+            boolean naturalSpeedIncreasingNature,
+            boolean naturalSpeedDecreasingNature,
+            boolean effectiveSpeedIncreasingNature,
+            boolean effectiveSpeedDecreasingNature
+    ) {
+        if (!feature.levelScalingEnabled) {
+            return;
+        }
+
+        RidingTweaksConfig.SpeedStatScaling scaling = feature.statScaling;
+        if (scaling == null) {
+            return;
+        }
+
+        addNatureStatFactor(
+                factors,
+                feature,
+                scaling,
+                true,
+                naturalSpeedIncreasingNature,
+                naturalSpeedDecreasingNature,
+                effectiveSpeedIncreasingNature,
+                effectiveSpeedDecreasingNature
+        );
+
+        addStatIvEvFactors(factors, feature, scaling, naturalSpeedIv, effectiveSpeedIv, speedEv);
+    }
+
+    private void addNatureStatFactor(
+            List<Double> factors,
+            RidingTweaksConfig.FeatureTweaks feature,
+            RidingTweaksConfig.NatureIvEvStatScaling scaling,
+            boolean statHasNature,
+            boolean naturalIncreasingNature,
+            boolean naturalDecreasingNature,
+            boolean effectiveIncreasingNature,
+            boolean effectiveDecreasingNature
+    ) {
+        if (!feature.levelScalingEnabled || scaling == null || !statHasNature || !scaling.natureScalingEnabled) {
+            return;
+        }
+
+        boolean increasingNature = scaling.allowMints ? effectiveIncreasingNature : naturalIncreasingNature;
+        boolean decreasingNature = scaling.allowMints ? effectiveDecreasingNature : naturalDecreasingNature;
+        if (increasingNature) {
+            factors.add(1.1D);
+        } else if (decreasingNature) {
+            factors.add(0.9D);
+        }
+    }
+
+    private void addStatIvEvFactors(
+            List<Double> factors,
+            RidingTweaksConfig.FeatureTweaks feature,
+            RidingTweaksConfig.IvEvStatScaling scaling,
+            int naturalIv,
+            int effectiveIv,
+            int ev
+    ) {
+        if (!feature.levelScalingEnabled || scaling == null) {
+            return;
+        }
+
+        int statIv = scaling.allowHyperTraining ? effectiveIv : naturalIv;
+        int clampedIv = Math.clamp(statIv, 0, 31);
+        int clampedEv = Math.clamp(ev, 0, 252);
+        if (RidingTweaksConfig.IV_EV_MODE_COMBINED.equals(scaling.ivEvScalingMode)) {
+            factors.add(interpolateMultiplier(
+                    scaling.combinedZeroMultiplier,
+                    scaling.combinedMaxMultiplier,
+                    clampedIv + clampedEv,
+                    283
+            ));
+        } else if (RidingTweaksConfig.IV_EV_MODE_SEPARATE.equals(scaling.ivEvScalingMode)) {
+            factors.add(interpolateMultiplier(scaling.ivZeroMultiplier, scaling.ivMaxMultiplier, clampedIv, 31));
+            factors.add(interpolateMultiplier(scaling.evZeroMultiplier, scaling.evMaxMultiplier, clampedEv, 252));
+        }
+    }
+
+    private static double interpolateMultiplier(double zeroMultiplier, double maxMultiplier, int value, int maxValue) {
+        if (maxValue <= 0) {
+            return zeroMultiplier;
+        }
+        double progress = Math.clamp(value / (double) maxValue, 0.0D, 1.0D);
+        return Math.max(0.01D, zeroMultiplier + progress * (maxMultiplier - zeroMultiplier));
     }
 
     private void addRidingFactors(
@@ -373,10 +605,14 @@ public final class RidingTweaksConfigManager {
             return new RidingTweaksConfig();
         }
 
-        try (Reader reader = Files.newBufferedReader(path)) {
-            RidingTweaksConfig config = GSON.fromJson(reader, RidingTweaksConfig.class);
-            return config == null ? new RidingTweaksConfig() : config;
-        } catch (IOException | JsonSyntaxException exception) {
+        try {
+            String json = Files.readString(path);
+            String configVersion = readConfigVersion(json);
+            try (Reader reader = Files.newBufferedReader(path)) {
+                RidingTweaksConfig config = GSON.fromJson(reader, RidingTweaksConfig.class);
+                return migrateLocalConfig(config == null ? new RidingTweaksConfig() : config, configVersion);
+            }
+        } catch (IOException | JsonSyntaxException | IllegalStateException | UnsupportedOperationException exception) {
             LOGGER.error("Failed to read {} config from {}; using defaults", CobblemonRidingTweaks.MOD_NAME, path, exception);
             return new RidingTweaksConfig();
         }
@@ -392,14 +628,14 @@ public final class RidingTweaksConfigManager {
                         configVersion,
                         RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
                 );
-                return new SyncedConfigParseResult(vanillaConfig(), false);
+                return new SyncedConfigParseResult(vanillaConfig(), false, configVersion, true);
             }
 
             RidingTweaksConfig config = GSON.fromJson(json, RidingTweaksConfig.class);
-            return new SyncedConfigParseResult(config == null ? new RidingTweaksConfig() : config, true);
+            return new SyncedConfigParseResult(config == null ? new RidingTweaksConfig() : config, true, configVersion, false);
         } catch (JsonSyntaxException | IllegalStateException | UnsupportedOperationException exception) {
             LOGGER.error("Failed to parse synced {} config; using vanilla behaviour", CobblemonRidingTweaks.MOD_NAME, exception);
-            return new SyncedConfigParseResult(vanillaConfig(), false);
+            return new SyncedConfigParseResult(vanillaConfig(), false, UNKNOWN_CONFIG_VERSION, false);
         }
     }
 
@@ -471,6 +707,45 @@ public final class RidingTweaksConfigManager {
         return parts;
     }
 
+    private static RidingTweaksConfig migrateLocalConfig(RidingTweaksConfig config, String fromVersion) {
+        if (isOlderThan(fromVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
+            if (isOlderThan(fromVersion, "1.1.0")) {
+                migrateTo1_1_0(config);
+            }
+            config.configVersion = RidingTweaksConfig.SUPPORTED_CONFIG_VERSION;
+        }
+        return config;
+    }
+
+    private static void migrateTo1_1_0(RidingTweaksConfig config) {
+        if (config.speed == null) {
+            config.speed = new RidingTweaksConfig.SpeedTweaks();
+        }
+        if (config.stamina == null) {
+            config.stamina = new RidingTweaksConfig.StaminaTweaks();
+        }
+        if (config.stamina.statScaling == null) {
+            config.stamina.statScaling = new RidingTweaksConfig.StaminaStatScaling();
+        }
+        if (config.speed.statScaling == null) {
+            config.speed.statScaling = new RidingTweaksConfig.SpeedStatScaling();
+        }
+    }
+
+    private static boolean isOlderThan(String candidate, String target) {
+        int[] candidateParts = parseVersion(candidate);
+        int[] targetParts = parseVersion(target);
+        for (int i = 0; i < candidateParts.length; i++) {
+            if (candidateParts[i] < targetParts[i]) {
+                return true;
+            }
+            if (candidateParts[i] > targetParts[i]) {
+                return false;
+            }
+        }
+        return false;
+    }
+
     private static RidingTweaksConfig vanillaConfig() {
         RidingTweaksConfig config = new RidingTweaksConfig();
         config.enabled = false;
@@ -482,7 +757,15 @@ public final class RidingTweaksConfigManager {
         return copy == null ? new RidingTweaksConfig().sanitize() : copy.sanitize();
     }
 
-    private record SyncedConfigParseResult(RidingTweaksConfig config, boolean editable) {
+    public record ServerConfigApplyResult(boolean versionMismatch, String serverConfigVersion, String supportedConfigVersion) {
+    }
+
+    private record SyncedConfigParseResult(
+            RidingTweaksConfig config,
+            boolean editable,
+            String configVersion,
+            boolean versionMismatch
+    ) {
     }
 
     private static void warnForInvalidNumbers(RidingTweaksConfig config) {
@@ -509,13 +792,32 @@ public final class RidingTweaksConfigManager {
         if (feature == null) {
             return;
         }
+        warnIfInvalid(section + ".globalMultiplier", feature.globalMultiplier);
         warnIfInvalid(section + ".defaultLabelMultiplier", feature.defaultLabelMultiplier);
         warnIfInvalid(section + ".minFinalMultiplier", feature.minFinalMultiplier);
         warnIfInvalid(section + ".maxFinalMultiplier", feature.maxFinalMultiplier);
+        if (feature instanceof RidingTweaksConfig.StaminaTweaks staminaTweaks) {
+            warnForInvalidStatScaling(section + ".statScaling", staminaTweaks.statScaling);
+        }
+        if (feature instanceof RidingTweaksConfig.SpeedTweaks speedTweaks) {
+            warnForInvalidStatScaling(section + ".statScaling", speedTweaks.statScaling);
+        }
         warnForInvalidNumbers(section + ".rideStyleMultipliers", feature.rideStyleMultipliers);
         warnForInvalidNumbers(section + ".behaviourMultipliers", feature.behaviourMultipliers);
         warnForInvalidNumbers(section + ".labelMultipliers", feature.labelMultipliers);
         warnForInvalidNumbers(section + ".speciesOverrides", feature.speciesOverrides);
+    }
+
+    private static void warnForInvalidStatScaling(String section, RidingTweaksConfig.IvEvStatScaling scaling) {
+        if (scaling == null) {
+            return;
+        }
+        warnIfInvalid(section + ".combinedZeroMultiplier", scaling.combinedZeroMultiplier);
+        warnIfInvalid(section + ".combinedMaxMultiplier", scaling.combinedMaxMultiplier);
+        warnIfInvalid(section + ".ivZeroMultiplier", scaling.ivZeroMultiplier);
+        warnIfInvalid(section + ".ivMaxMultiplier", scaling.ivMaxMultiplier);
+        warnIfInvalid(section + ".evZeroMultiplier", scaling.evZeroMultiplier);
+        warnIfInvalid(section + ".evMaxMultiplier", scaling.evMaxMultiplier);
     }
 
     private static void warnForInvalidNumbers(String section, Map<String, Double> values) {

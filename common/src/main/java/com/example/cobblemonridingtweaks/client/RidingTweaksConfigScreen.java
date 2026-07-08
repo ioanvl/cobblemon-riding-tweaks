@@ -8,6 +8,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -26,6 +27,10 @@ public final class RidingTweaksConfigScreen extends Screen {
     private static final int MAX_CONTENT_WIDTH = 420;
     private static final int FIELD_GAP = 10;
     private static final int REMOVE_BUTTON_WIDTH = 22;
+    private static final int NORMAL_TEXT_COLOR = 0xD8D8D8;
+    private static final int DIMMED_TEXT_COLOR = 0x8C8C8C;
+    private static final int HEADER_TEXT_COLOR = 0xFFE080;
+    private static final int SUBHEADER_TEXT_COLOR = 0xC8D8FF;
     private static final List<String> RIDE_STYLE_KEYS = List.of("land", "liquid", "air");
     private static final List<String> LAND_BEHAVIOUR_KEYS = List.of("horse", "minekart", "vehicle");
     private static final List<String> AIR_BEHAVIOUR_KEYS = List.of("bird", "glider", "helicopter", "hover", "jet", "rocket");
@@ -233,6 +238,9 @@ public final class RidingTweaksConfigScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (sectionPickerOpen) {
+            if (handleTabClick(mouseX, mouseY, button)) {
+                return true;
+            }
             handleSectionPickerClick(mouseX, mouseY, button);
             return true;
         }
@@ -276,15 +284,17 @@ public final class RidingTweaksConfigScreen extends Screen {
         int centerX = this.width / 2;
         addToggle("Mod Enabled", config.enabled, value -> config.enabled = value, centerX, rowY(0), 0,
                 "Turns this config on or off. Off leaves stamina and speed at neutral x1.");
-        addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(1), 0,
-                "Writes extra config and sync details to the log.");
 
-        addHeader("Stamina", 2);
-        addToggle("Stamina Tweaks", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(3), 0,
+        addHeader("Stamina", 1);
+        addToggle("Enabled", config.stamina.enabled, value -> config.stamina.enabled = value, centerX, rowY(2), 0,
                 "Master switch for stamina multipliers. Off keeps Cobblemon's normal stamina drain.");
-        addStackingModeToggle("Multiplier Mode", config.stamina, centerX, rowY(4), 0);
+        addStackingModeToggle("Multiplier Mode", config.stamina, centerX, rowY(3), 0);
+        if (shouldShowRow(4)) {
+            addDoubleField("Global Multiplier", () -> config.stamina.globalMultiplier, value -> config.stamina.globalMultiplier = value, centerX, rowY(4), 18,
+                    "Always-on stamina multiplier. It combines with the other enabled stamina factors.");
+        }
         addToggle("Scaling", config.stamina.levelScalingEnabled, value -> config.stamina.levelScalingEnabled = value, centerX, rowY(5), 18,
-                "Enables stamina scaling options. Currently scales by Pokemon level between the level 1 and level 100 multipliers.");
+                "Enables stamina scaling options for level and the selected stat's nature, IV, and EV.");
         addToggle("Ride Styles & Behaviours", config.stamina.ridingMultipliersEnabled, value -> config.stamina.ridingMultipliersEnabled = value, centerX, rowY(6), 18,
                 "Applies stamina multipliers for the active ride style and behaviour, such as air/jet or land/horse.");
         addToggle("Labels", config.stamina.labelMultipliersEnabled, value -> config.stamina.labelMultipliersEnabled = value, centerX, rowY(7), 18,
@@ -301,29 +311,36 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
 
         addHeader("Speed", 11);
-        addToggle("Speed Tweaks", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(12), 0,
+        addToggle("Enabled", config.speed.enabled, value -> config.speed.enabled = value, centerX, rowY(12), 0,
                 "Master switch for speed multipliers. Off keeps Cobblemon's normal riding speed.");
         addStackingModeToggle("Multiplier Mode", config.speed, centerX, rowY(13), 0);
-        addToggle("Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(14), 18,
-                "Enables speed scaling options. Currently scales by Pokemon level between the level 1 and level 100 multipliers.");
-        addToggle("Ride Styles & Behaviours", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(15), 18,
+        if (shouldShowRow(14)) {
+            addDoubleField("Global Multiplier", () -> config.speed.globalMultiplier, value -> config.speed.globalMultiplier = value, centerX, rowY(14), 18,
+                    "Always-on speed multiplier. It combines with the other enabled speed factors.");
+        }
+        addToggle("Scaling", config.speed.levelScalingEnabled, value -> config.speed.levelScalingEnabled = value, centerX, rowY(15), 18,
+                "Enables speed scaling options for level, nature, IVs, and EVs.");
+        addToggle("Ride Styles & Behaviours", config.speed.ridingMultipliersEnabled, value -> config.speed.ridingMultipliersEnabled = value, centerX, rowY(16), 18,
                 "Applies speed multipliers for the active ride style and behaviour, such as air/jet or land/horse.");
-        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(16), 18,
+        addToggle("Labels", config.speed.labelMultipliersEnabled, value -> config.speed.labelMultipliersEnabled = value, centerX, rowY(17), 18,
                 "Applies speed multipliers from Cobblemon form labels. Label Behaviour controls highest or stacking.");
-        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(17), 18,
+        addToggle("Species", config.speed.speciesOverridesEnabled, value -> config.speed.speciesOverridesEnabled = value, centerX, rowY(18), 18,
                 "Applies per-species speed overrides. Species Behaviour controls override or stacking.");
-        if (shouldShowRow(18)) {
-            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(18), 18,
+        if (shouldShowRow(19)) {
+            addDoubleField("Min Final Multiplier", () -> config.speed.minFinalMultiplier, value -> config.speed.minFinalMultiplier = value, centerX, rowY(19), 18,
                     "Lowest allowed final speed multiplier after all enabled speed factors are combined.");
         }
-        if (shouldShowRow(19)) {
-            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(19), 18,
+        if (shouldShowRow(20)) {
+            addDoubleField("Max Final Multiplier", () -> config.speed.maxFinalMultiplier, value -> config.speed.maxFinalMultiplier = value, centerX, rowY(20), 18,
                     "Highest allowed final speed multiplier after all enabled speed factors are combined.");
         }
 
-        addHeader("Version", 20);
-        if (shouldShowRow(21)) {
-            addLabel("Config Version", config.configVersion, centerX, rowY(21));
+        addHeader("Configuration", 21);
+        addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(22), 0,
+                "Writes extra config and sync details to the log.");
+        addResetButton("Config Reset", centerX, rowY(23));
+        if (shouldShowRow(24)) {
+            addLabel("Config Version", config.configVersion, centerX, rowY(24));
         }
     }
 
@@ -337,6 +354,96 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
         if (shouldShowRow(3)) {
             addDoubleField("Level 100 Multiplier", () -> scaling.level100Multiplier, value -> scaling.level100Multiplier = value, centerX, rowY(3));
+        }
+        if (feature instanceof RidingTweaksConfig.StaminaTweaks staminaTweaks) {
+            addStatScalingControls(
+                    staminaTweaks.statScaling,
+                    staminaTweaks.statScaling.stat,
+                    true,
+                    true,
+                    centerX
+            );
+        } else if (feature instanceof RidingTweaksConfig.SpeedTweaks speedTweaks) {
+            addStatScalingControls(
+                    speedTweaks.statScaling,
+                    RidingTweaksConfig.STAT_SPEED,
+                    true,
+                    false,
+                    centerX
+            );
+        }
+    }
+
+    private void addStatScalingControls(
+            RidingTweaksConfig.IvEvStatScaling scaling,
+            String statKey,
+            boolean includeNatureScaling,
+            boolean includeStatSelector,
+            int centerX
+    ) {
+        addHeader("Stat Scaling", 4);
+        int row = 5;
+        String sanitizedStatKey = RidingTweaksConfig.sanitizeStatKey(statKey);
+        String statName = statLabelText(sanitizedStatKey);
+        if (includeStatSelector && scaling instanceof RidingTweaksConfig.StaminaStatScaling staminaScaling) {
+            addStatKeyToggle("Used Stat", staminaScaling, centerX, rowY(row++), 0);
+            sanitizedStatKey = RidingTweaksConfig.sanitizeStatKey(staminaScaling.stat);
+            statName = statLabelText(sanitizedStatKey);
+        }
+
+        RidingTweaksConfig.NatureIvEvStatScaling natureScaling =
+                includeNatureScaling && scaling instanceof RidingTweaksConfig.NatureIvEvStatScaling typedScaling ? typedScaling : null;
+        if (natureScaling != null) {
+            boolean statHasNature = statHasNature(sanitizedStatKey);
+            addNatureScalingToggle("Nature Scaling", natureScaling, statName, statHasNature, centerX, rowY(row++), 0);
+            if (statHasNature && natureScaling.natureScalingEnabled) {
+                addToggle("Allow Mints", natureScaling.allowMints, value -> natureScaling.allowMints = value, centerX, rowY(row++), 18,
+                        "When on, minted natures count. When off, only the Pokemon's original nature counts.");
+            }
+        }
+        addIvEvModeToggle(statName + " IV & EV Scaling", scaling, statName, centerX, rowY(row++), 0);
+        if (RidingTweaksConfig.IV_EV_MODE_COMBINED.equals(scaling.ivEvScalingMode)) {
+            addToggle("Allow Hyper Training", scaling.allowHyperTraining, value -> scaling.allowHyperTraining = value, centerX, rowY(row++), 18,
+                    "When on, hyper-trained " + statName + " IV counts. When off, only the natural " + statName + " IV counts.");
+            if (shouldShowRow(row)) {
+                addDoubleField(
+                        "0 IV + EV Multiplier",
+                        () -> scaling.combinedZeroMultiplier,
+                        value -> scaling.combinedZeroMultiplier = value,
+                        centerX,
+                        rowY(row),
+                        18
+                );
+            }
+            row++;
+            if (shouldShowRow(row)) {
+                addDoubleField(
+                        "283 (Max) IV + EV Multiplier",
+                        () -> scaling.combinedMaxMultiplier,
+                        value -> scaling.combinedMaxMultiplier = value,
+                        centerX,
+                        rowY(row),
+                        18
+                );
+            }
+        } else if (RidingTweaksConfig.IV_EV_MODE_SEPARATE.equals(scaling.ivEvScalingMode)) {
+            addToggle("Allow Hyper Training", scaling.allowHyperTraining, value -> scaling.allowHyperTraining = value, centerX, rowY(row++), 18,
+                    "When on, hyper-trained " + statName + " IV counts. When off, only the natural " + statName + " IV counts.");
+            if (shouldShowRow(row)) {
+                addDoubleField("0 IV Multiplier", () -> scaling.ivZeroMultiplier, value -> scaling.ivZeroMultiplier = value, centerX, rowY(row), 18);
+            }
+            row++;
+            if (shouldShowRow(row)) {
+                addDoubleField("31 (Max) IV Multiplier", () -> scaling.ivMaxMultiplier, value -> scaling.ivMaxMultiplier = value, centerX, rowY(row), 18);
+            }
+            row++;
+            if (shouldShowRow(row)) {
+                addDoubleField("0 EV Multiplier", () -> scaling.evZeroMultiplier, value -> scaling.evZeroMultiplier = value, centerX, rowY(row), 18);
+            }
+            row++;
+            if (shouldShowRow(row)) {
+                addDoubleField("252 (Max) EV Multiplier", () -> scaling.evMaxMultiplier, value -> scaling.evMaxMultiplier = value, centerX, rowY(row), 18);
+            }
         }
     }
 
@@ -408,7 +515,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     private void addMapButtons(Map<String, Double> multipliers, List<String> knownKeys, boolean editableKeys) {
         int buttonY = rowsTop() + visibleRows() * ROW_HEIGHT + 4;
         if (selectedSection.labelSection && !knownKeys.isEmpty()) {
-            Button addKnownButton = Button.builder(Component.literal("Add Known"), button -> {
+            Button addKnownButton = Button.builder(rowButtonText("Add Known", buttonY), button -> {
                 knownPickerOpen = true;
                 sectionPickerOpen = false;
                 knownPickerScroll = 0;
@@ -419,7 +526,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
 
         if (editableKeys) {
-            Button addCustomButton = Button.builder(Component.literal(customButtonText()), button -> {
+            Button addCustomButton = Button.builder(rowButtonText(customButtonText(), buttonY), button -> {
                 addCustomKey(multipliers);
                 rebuild();
             }).bounds(addCustomButtonX(), buttonY, addButtonWidth(selectedSection.labelSection), 20).build();
@@ -430,13 +537,15 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private void addHeader(String label, int row) {
         if (shouldShowRow(row)) {
-            labelLines.add(new LabelLine(fitText(label, contentWidth()), contentLeft(), rowY(row) + 6, 0xFFE080));
+            int y = rowY(row) + 6;
+            labelLines.add(new LabelLine(fitText(label, contentWidth()), contentLeft(), y, rowTextColor(y, HEADER_TEXT_COLOR)));
         }
     }
 
     private void addSubHeader(String label, int row) {
         if (shouldShowRow(row)) {
-            labelLines.add(new LabelLine(fitText(label, labelWidth() - 12), labelX() + 12, rowY(row) + 6, 0xC8D8FF));
+            int y = rowY(row) + 6;
+            labelLines.add(new LabelLine(fitText(label, labelWidth() - 12), labelX() + 12, y, rowTextColor(y, SUBHEADER_TEXT_COLOR)));
         }
     }
 
@@ -460,7 +569,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (y < rowsTop() || y >= rowViewportBottom()) {
             return;
         }
-        Button button = Button.builder(Component.literal(onOff(currentValue)), pressed -> {
+        Button button = Button.builder(rowButtonText(onOff(currentValue), y), pressed -> {
             setter.accept(!currentValue);
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
@@ -471,11 +580,27 @@ public final class RidingTweaksConfigScreen extends Screen {
         addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
+    private void addResetButton(String label, int centerX, int y) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+
+        String tooltip = "Resets this config to neutral x1 values. Nothing is written until you click Save.";
+        Button button = Button.builder(Component.literal("Clear"), pressed -> showResetConfirmation())
+                .bounds(valueX(), y, valueWidth(), 20)
+                .build();
+        button.active = selectedTabIsEditable();
+        setTooltip(button, tooltip);
+        addRenderableWidget(button);
+        addTooltipArea(labelX(), y, labelWidth(), 20, tooltip);
+        addRowLabel(label, labelX(), y + 6);
+    }
+
     private void addStackingModeToggle(String label, RidingTweaksConfig.FeatureTweaks feature, int centerX, int y, int indent) {
         if (y < rowsTop() || y >= rowViewportBottom()) {
             return;
         }
-        Button button = Button.builder(Component.literal(stackingModeText(feature.stackingMode)), pressed -> {
+        Button button = Button.builder(rowButtonText(stackingModeText(feature.stackingMode), y), pressed -> {
             feature.stackingMode = nextStackingMode(feature.stackingMode);
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
@@ -491,7 +616,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (y < rowsTop() || y >= rowViewportBottom()) {
             return;
         }
-        Button button = Button.builder(Component.literal(labelModeText(feature.labelMode)), pressed -> {
+        Button button = Button.builder(rowButtonText(labelModeText(feature.labelMode), y), pressed -> {
             feature.labelMode = nextLabelMode(feature.labelMode);
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
@@ -507,12 +632,83 @@ public final class RidingTweaksConfigScreen extends Screen {
         if (y < rowsTop() || y >= rowViewportBottom()) {
             return;
         }
-        Button button = Button.builder(Component.literal(speciesModeText(feature.speciesMode)), pressed -> {
+        Button button = Button.builder(rowButtonText(speciesModeText(feature.speciesMode), y), pressed -> {
             feature.speciesMode = nextSpeciesMode(feature.speciesMode);
             rebuild();
         }).bounds(valueX(), y, valueWidth(), 20).build();
         button.active = selectedTabIsEditable();
         List<Component> tooltip = speciesModeTooltip();
+        setTooltip(button, tooltip);
+        addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addStatKeyToggle(
+            String label,
+            RidingTweaksConfig.StaminaStatScaling scaling,
+            int centerX,
+            int y,
+            int indent
+    ) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+        Button button = Button.builder(rowButtonText(statLabelText(scaling.stat), y), pressed -> {
+            scaling.stat = nextStatKey(scaling.stat);
+            rebuild();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
+        button.active = selectedTabIsEditable();
+        List<Component> tooltip = statKeyTooltip();
+        setTooltip(button, tooltip);
+        addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addNatureScalingToggle(
+            String label,
+            RidingTweaksConfig.NatureIvEvStatScaling scaling,
+            String statName,
+            boolean statHasNature,
+            int centerX,
+            int y,
+            int indent
+    ) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+        Button button = Button.builder(rowButtonText(statHasNature ? onOff(scaling.natureScalingEnabled) : "N/A", y), pressed -> {
+            scaling.natureScalingEnabled = !scaling.natureScalingEnabled;
+            rebuild();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
+        button.active = selectedTabIsEditable() && statHasNature;
+        String tooltip = statHasNature
+                ? "Applies Pokemon nature's " + statName + " modifier as a riding factor: +10% for +" + statName + ", -10% for -" + statName + "."
+                : "HP is not affected by any Pokemon nature.";
+        setTooltip(button, tooltip);
+        addRenderableWidget(button);
+        addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
+        addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
+    }
+
+    private void addIvEvModeToggle(
+            String label,
+            RidingTweaksConfig.IvEvStatScaling scaling,
+            String statName,
+            int centerX,
+            int y,
+            int indent
+    ) {
+        if (y < rowsTop() || y >= rowViewportBottom()) {
+            return;
+        }
+        Button button = Button.builder(rowButtonText(ivEvModeText(scaling.ivEvScalingMode), y), pressed -> {
+            scaling.ivEvScalingMode = nextIvEvMode(scaling.ivEvScalingMode);
+            rebuild();
+        }).bounds(valueX(), y, valueWidth(), 20).build();
+        button.active = selectedTabIsEditable();
+        List<Component> tooltip = ivEvModeTooltip(statName);
         setTooltip(button, tooltip);
         addRenderableWidget(button);
         addTooltipArea(labelX() + indent, y, labelWidth() - indent, 20, tooltip);
@@ -611,7 +807,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         EditBox valueBox = textBox(valueX(), y, valueWidth(), formatDouble(value));
         valueBox.setResponder(text -> parseMultiplier(key, text, parsed -> multipliers.put(key, parsed)));
         addRenderableWidget(valueBox);
-        addRowLabel(key, labelX() + indent, y + 6, labelWidth() - indent);
+        addRowLabel(displayKey(key), labelX() + indent, y + 6, labelWidth() - indent);
     }
 
     private void addEditableMapRow(Map<String, Double> multipliers, String key, double value, int centerX, int y) {
@@ -641,7 +837,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         }));
         addRenderableWidget(valueBox);
 
-        Button removeButton = Button.builder(Component.literal("X"), button -> {
+        Button removeButton = Button.builder(rowButtonText("X", y), button -> {
             multipliers.remove(currentKey[0]);
             scrollRow = Math.max(0, scrollRow - 1);
             rebuild();
@@ -654,6 +850,9 @@ public final class RidingTweaksConfigScreen extends Screen {
         EditBox box = new EditBox(this.font, x, y, width, 20, Component.empty());
         box.setValue(value);
         box.setEditable(selectedTabIsEditable());
+        if (isPageContentDimmedAt(y)) {
+            box.setTextColor(DIMMED_TEXT_COLOR);
+        }
         box.setMaxLength(64);
         return box;
     }
@@ -706,12 +905,36 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private int rowCountForSection() {
         return switch (selectedSection) {
-            case GENERAL -> 22;
-            case STAMINA_LEVEL, SPEED_LEVEL -> 4;
+            case GENERAL -> 25;
+            case STAMINA_LEVEL -> statLevelRowCount(viewingConfig().stamina.statScaling, true);
+            case SPEED_LEVEL -> statLevelRowCount(viewingConfig().speed.statScaling, false);
             case STAMINA_RIDE_STYLES, SPEED_RIDE_STYLES -> rideStyleAndBehaviourRowCount();
             case STAMINA_LABELS, SPEED_LABELS -> 3 + currentMap().size();
             case STAMINA_SPECIES, SPEED_SPECIES -> 3 + currentMap().size();
         };
+    }
+
+    private int statLevelRowCount(RidingTweaksConfig.IvEvStatScaling scaling, boolean includeStatSelector) {
+        int rowCount = 5;
+        String statKey = RidingTweaksConfig.STAT_SPEED;
+        if (includeStatSelector && scaling instanceof RidingTweaksConfig.StaminaStatScaling staminaScaling) {
+            rowCount++;
+            statKey = staminaScaling.stat;
+        }
+        if (scaling instanceof RidingTweaksConfig.NatureIvEvStatScaling natureScaling) {
+            rowCount++;
+            if (statHasNature(statKey) && natureScaling.natureScalingEnabled) {
+                rowCount++;
+            }
+        }
+        rowCount++;
+        if (scaling == null || RidingTweaksConfig.IV_EV_MODE_OFF.equals(normalizeKeyOrBlank(scaling.ivEvScalingMode))) {
+            return rowCount;
+        }
+        if (RidingTweaksConfig.IV_EV_MODE_COMBINED.equals(normalizeKeyOrBlank(scaling.ivEvScalingMode))) {
+            return rowCount + 3;
+        }
+        return rowCount + 5;
     }
 
     private int rideStyleAndBehaviourRowCount() {
@@ -896,6 +1119,34 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
 
         sectionPickerOpen = false;
+        rebuild();
+    }
+
+    private boolean handleTabClick(double mouseX, double mouseY, int button) {
+        if (button != 0 || !showServerTabs()) {
+            return false;
+        }
+
+        int centerX = this.width / 2;
+        int tabGap = 8;
+        int tabWidth = Math.max(72, Math.min(120, (contentWidth() - tabGap) / 2));
+        int top = tabsY();
+        if (isWithin(mouseX, mouseY, centerX - tabWidth - tabGap / 2, top, tabWidth, 20)) {
+            selectTab(Tab.LOCAL);
+            return true;
+        }
+        if (isWithin(mouseX, mouseY, centerX + tabGap / 2, top, tabWidth, 20)) {
+            selectTab(Tab.SERVER);
+            return true;
+        }
+        return false;
+    }
+
+    private void selectTab(Tab tab) {
+        selectedTab = tab;
+        knownPickerOpen = false;
+        sectionPickerOpen = false;
+        sectionPickerScroll = 0;
         rebuild();
     }
 
@@ -1123,16 +1374,245 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private Component sectionButtonText(Section section) {
-        return Component.literal((selectedSection == section ? "> " : "") + section.title);
+        boolean disabled = isSectionFeatureDisabled(section);
+        String prefix = selectedSection == section ? ">>  " : "";
+        String suffix = disabled ? " (Off)" : "";
+        String text = prefix + section.title + suffix;
+        return disabled ? Component.literal(text).withStyle(ChatFormatting.GRAY) : Component.literal(text);
+    }
+
+    private boolean isSectionFeatureDisabled(Section section) {
+        RidingTweaksConfig config = viewingConfig();
+        return switch (section) {
+            case STAMINA_LEVEL -> !config.stamina.levelScalingEnabled;
+            case STAMINA_RIDE_STYLES -> !config.stamina.ridingMultipliersEnabled;
+            case STAMINA_LABELS -> !config.stamina.labelMultipliersEnabled;
+            case STAMINA_SPECIES -> !config.stamina.speciesOverridesEnabled;
+            case SPEED_LEVEL -> !config.speed.levelScalingEnabled;
+            case SPEED_RIDE_STYLES -> !config.speed.ridingMultipliersEnabled;
+            case SPEED_LABELS -> !config.speed.labelMultipliersEnabled;
+            case SPEED_SPECIES -> !config.speed.speciesOverridesEnabled;
+            case GENERAL -> false;
+        };
     }
 
     private String configSummary() {
         RidingTweaksConfig config = viewingConfig();
+        MultiplierRange staminaRange = summaryRange(config, config.stamina);
+        MultiplierRange speedRange = summaryRange(config, config.speed);
         return "Version " + config.configVersion
-                + " | stamina x" + formatDouble(config.stamina.levelScaling.level1Multiplier)
-                + "-x" + formatDouble(config.stamina.levelScaling.level100Multiplier)
-                + " | final x" + formatDouble(config.stamina.minFinalMultiplier)
-                + "-x" + formatDouble(config.stamina.maxFinalMultiplier);
+                + " | stamina x" + formatMultiplierRange(staminaRange)
+                + " | speed x" + formatMultiplierRange(speedRange);
+    }
+
+    private static MultiplierRange summaryRange(RidingTweaksConfig config, RidingTweaksConfig.FeatureTweaks feature) {
+        if (config == null || !config.enabled || feature == null || !feature.enabled) {
+            return new MultiplierRange(1.0D, 1.0D);
+        }
+
+        List<MultiplierRange> baseRanges = new ArrayList<>();
+        baseRanges.add(fixedRange(feature.globalMultiplier));
+        if (feature.levelScalingEnabled) {
+            baseRanges.add(range(feature.levelScaling.level1Multiplier, feature.levelScaling.level100Multiplier));
+            addStatSummaryRanges(baseRanges, feature);
+        }
+        if (feature.ridingMultipliersEnabled) {
+            baseRanges.add(mapRange(feature.rideStyleMultipliers));
+            baseRanges.add(mapRange(feature.behaviourMultipliers));
+        }
+
+        MultiplierRange labelRange = labelRange(feature);
+        if (feature.speciesOverridesEnabled
+                && RidingTweaksConfig.SPECIES_MODE_OVERRIDE.equals(normalizeKeyOrBlank(feature.speciesMode))) {
+            MultiplierRange withoutSpecies = combineAndClamp(feature, baseRanges, labelRange);
+            if (feature.speciesOverrides == null || feature.speciesOverrides.isEmpty()) {
+                return withoutSpecies;
+            }
+            MultiplierRange withSpecies = combineAndClamp(feature, baseRanges, mapRange(feature.speciesOverrides));
+            return new MultiplierRange(
+                    Math.min(withoutSpecies.min(), withSpecies.min()),
+                    Math.max(withoutSpecies.max(), withSpecies.max())
+            );
+        }
+
+        List<MultiplierRange> ranges = new ArrayList<>(baseRanges);
+        if (feature.speciesOverridesEnabled && feature.speciesOverrides != null && !feature.speciesOverrides.isEmpty()) {
+            ranges.add(mapRangeIncludingOne(feature.speciesOverrides));
+        }
+        if (labelRange != null) {
+            ranges.add(labelRange);
+        }
+        return combineAndClamp(feature, ranges);
+    }
+
+    private static void addStatSummaryRanges(List<MultiplierRange> ranges, RidingTweaksConfig.FeatureTweaks feature) {
+        if (feature instanceof RidingTweaksConfig.StaminaTweaks staminaTweaks) {
+            RidingTweaksConfig.StaminaStatScaling scaling = staminaTweaks.statScaling;
+            if (scaling != null) {
+                addNatureAndIvEvRanges(ranges, scaling, scaling.stat);
+            }
+        } else if (feature instanceof RidingTweaksConfig.SpeedTweaks speedTweaks) {
+            addNatureAndIvEvRanges(ranges, speedTweaks.statScaling, RidingTweaksConfig.STAT_SPEED);
+        }
+    }
+
+    private static void addNatureAndIvEvRanges(
+            List<MultiplierRange> ranges,
+            RidingTweaksConfig.NatureIvEvStatScaling scaling,
+            String statKey
+    ) {
+        if (scaling == null) {
+            return;
+        }
+        if (statHasNature(statKey) && scaling.natureScalingEnabled) {
+            ranges.add(new MultiplierRange(0.9D, 1.1D));
+        }
+        if (RidingTweaksConfig.IV_EV_MODE_COMBINED.equals(normalizeKeyOrBlank(scaling.ivEvScalingMode))) {
+            ranges.add(range(scaling.combinedZeroMultiplier, scaling.combinedMaxMultiplier));
+        } else if (RidingTweaksConfig.IV_EV_MODE_SEPARATE.equals(normalizeKeyOrBlank(scaling.ivEvScalingMode))) {
+            ranges.add(range(scaling.ivZeroMultiplier, scaling.ivMaxMultiplier));
+            ranges.add(range(scaling.evZeroMultiplier, scaling.evMaxMultiplier));
+        }
+    }
+
+    private static MultiplierRange labelRange(RidingTweaksConfig.FeatureTweaks feature) {
+        if (!feature.labelMultipliersEnabled) {
+            return null;
+        }
+
+        double defaultMultiplier = safeMultiplier(feature.defaultLabelMultiplier);
+        List<Double> values = feature.labelMultipliers == null
+                ? List.of()
+                : feature.labelMultipliers.values().stream().map(RidingTweaksConfigScreen::safeMultiplier).toList();
+        if (values.isEmpty()) {
+            return fixedRange(defaultMultiplier);
+        }
+
+        if (RidingTweaksConfig.LABEL_MODE_HIGHEST.equals(normalizeKeyOrBlank(feature.labelMode))) {
+            double min = defaultMultiplier;
+            double max = defaultMultiplier;
+            for (double value : values) {
+                min = Math.min(min, value);
+                max = Math.max(max, value);
+            }
+            return new MultiplierRange(min, max);
+        }
+
+        if (RidingTweaksConfig.STACKING_MODE_MULTIPLICATIVE.equals(normalizeKeyOrBlank(feature.stackingMode))) {
+            double min = 1.0D;
+            double max = 1.0D;
+            for (double value : values) {
+                if (value < 1.0D) {
+                    min *= value;
+                } else if (value > 1.0D) {
+                    max *= value;
+                }
+            }
+            return new MultiplierRange(Math.min(defaultMultiplier, min), Math.max(defaultMultiplier, max));
+        }
+
+        double min = 1.0D;
+        double max = 1.0D;
+        for (double value : values) {
+            if (value < 1.0D) {
+                min += value - 1.0D;
+            } else if (value > 1.0D) {
+                max += value - 1.0D;
+            }
+        }
+        return new MultiplierRange(Math.min(defaultMultiplier, min), Math.max(defaultMultiplier, max));
+    }
+
+    private static MultiplierRange combineAndClamp(
+            RidingTweaksConfig.FeatureTweaks feature,
+            List<MultiplierRange> ranges,
+            MultiplierRange extraRange
+    ) {
+        List<MultiplierRange> combinedRanges = new ArrayList<>(ranges);
+        if (extraRange != null) {
+            combinedRanges.add(extraRange);
+        }
+        return combineAndClamp(feature, combinedRanges);
+    }
+
+    private static MultiplierRange combineAndClamp(
+            RidingTweaksConfig.FeatureTweaks feature,
+            List<MultiplierRange> ranges
+    ) {
+        MultiplierRange rawRange = combineRanges(feature, ranges);
+        double minClamp = Math.max(0.01D, safeMultiplier(feature.minFinalMultiplier));
+        double maxClamp = Math.max(minClamp, safeMultiplier(feature.maxFinalMultiplier));
+        return new MultiplierRange(
+                Math.clamp(rawRange.min(), minClamp, maxClamp),
+                Math.clamp(rawRange.max(), minClamp, maxClamp)
+        );
+    }
+
+    private static MultiplierRange combineRanges(
+            RidingTweaksConfig.FeatureTweaks feature,
+            List<MultiplierRange> ranges
+    ) {
+        if (RidingTweaksConfig.STACKING_MODE_MULTIPLICATIVE.equals(normalizeKeyOrBlank(feature.stackingMode))) {
+            double min = 1.0D;
+            double max = 1.0D;
+            for (MultiplierRange range : ranges) {
+                min *= range.min();
+                max *= range.max();
+            }
+            return new MultiplierRange(min, max);
+        }
+
+        double min = 1.0D;
+        double max = 1.0D;
+        for (MultiplierRange range : ranges) {
+            min += range.min() - 1.0D;
+            max += range.max() - 1.0D;
+        }
+        return new MultiplierRange(min, max);
+    }
+
+    private static MultiplierRange fixedRange(double value) {
+        double safeValue = safeMultiplier(value);
+        return new MultiplierRange(safeValue, safeValue);
+    }
+
+    private static MultiplierRange range(double first, double second) {
+        double safeFirst = safeMultiplier(first);
+        double safeSecond = safeMultiplier(second);
+        return new MultiplierRange(Math.min(safeFirst, safeSecond), Math.max(safeFirst, safeSecond));
+    }
+
+    private static MultiplierRange mapRange(Map<String, Double> values) {
+        if (values == null || values.isEmpty()) {
+            return new MultiplierRange(1.0D, 1.0D);
+        }
+        double min = Double.POSITIVE_INFINITY;
+        double max = Double.NEGATIVE_INFINITY;
+        for (double value : values.values()) {
+            double safeValue = safeMultiplier(value);
+            min = Math.min(min, safeValue);
+            max = Math.max(max, safeValue);
+        }
+        return new MultiplierRange(min, max);
+    }
+
+    private static MultiplierRange mapRangeIncludingOne(Map<String, Double> values) {
+        MultiplierRange configuredRange = mapRange(values);
+        return new MultiplierRange(
+                Math.min(1.0D, configuredRange.min()),
+                Math.max(1.0D, configuredRange.max())
+        );
+    }
+
+    private static double safeMultiplier(double value) {
+        return Double.isFinite(value) ? Math.max(0.01D, value) : 1.0D;
+    }
+
+    private static String formatMultiplierRange(MultiplierRange range) {
+        if (Math.abs(range.max() - range.min()) < 0.0001D) {
+            return formatDouble(range.min());
+        }
+        return formatDouble(range.min()) + "-x" + formatDouble(range.max());
     }
 
     private String statusText() {
@@ -1196,6 +1676,49 @@ public final class RidingTweaksConfigScreen extends Screen {
         return selectedTab == Tab.LOCAL || manager().canEditServerConfig();
     }
 
+    private boolean isPageContentDimmedAt(int y) {
+        return isGeneralFeatureContentDimmedAt(y) || isPageContentDimmed() && y >= rowY(1);
+    }
+
+    private boolean isPageContentDimmed() {
+        RidingTweaksConfig config = viewingConfig();
+        return switch (selectedSection) {
+            case STAMINA_LEVEL -> !config.stamina.levelScalingEnabled;
+            case STAMINA_RIDE_STYLES -> !config.stamina.ridingMultipliersEnabled;
+            case STAMINA_LABELS -> !config.stamina.labelMultipliersEnabled;
+            case STAMINA_SPECIES -> !config.stamina.speciesOverridesEnabled;
+            case SPEED_LEVEL -> !config.speed.levelScalingEnabled;
+            case SPEED_RIDE_STYLES -> !config.speed.ridingMultipliersEnabled;
+            case SPEED_LABELS -> !config.speed.labelMultipliersEnabled;
+            case SPEED_SPECIES -> !config.speed.speciesOverridesEnabled;
+            case GENERAL -> false;
+        };
+    }
+
+    private boolean isGeneralFeatureContentDimmedAt(int y) {
+        if (selectedSection != Section.GENERAL) {
+            return false;
+        }
+
+        RidingTweaksConfig config = viewingConfig();
+        int row = rowIndexForY(y);
+        return !config.stamina.enabled && row > 2 && row < 11
+                || !config.speed.enabled && row > 12 && row < 21;
+    }
+
+    private int rowIndexForY(int y) {
+        return scrollRow + Math.floorDiv(y - rowsTop(), ROW_HEIGHT);
+    }
+
+    private int rowTextColor(int y, int normalColor) {
+        return isPageContentDimmedAt(y) ? DIMMED_TEXT_COLOR : normalColor;
+    }
+
+    private Component rowButtonText(String text, int y) {
+        Component component = Component.literal(text);
+        return isPageContentDimmedAt(y) ? component.copy().withStyle(ChatFormatting.GRAY) : component;
+    }
+
     private void saveCurrentConfig() {
         RidingTweaksConfig draft = viewingConfig().sanitize();
         if (selectedTab == Tab.SERVER) {
@@ -1212,6 +1735,47 @@ public final class RidingTweaksConfigScreen extends Screen {
         }
         localDraft = manager().copyLocalConfig();
         rebuild();
+    }
+
+    private void showResetConfirmation() {
+        if (!selectedTabIsEditable() || this.minecraft == null) {
+            return;
+        }
+
+        this.minecraft.setScreen(new ConfirmScreen(
+                confirmed -> {
+                    if (confirmed) {
+                        resetCurrentDraftToNeutral();
+                        showFeedback(resetFeedbackText(), true);
+                    }
+                    this.minecraft.setScreen(this);
+                },
+                Component.literal("Clear config values?"),
+                Component.literal("This resets this config to neutral x1 values. Nothing is written until you click Save."),
+                Component.literal("Yes"),
+                Component.literal("No")
+        ));
+    }
+
+    private void resetCurrentDraftToNeutral() {
+        RidingTweaksConfig neutralConfig = new RidingTweaksConfig().sanitize();
+        if (selectedTab == Tab.SERVER) {
+            serverDraft = neutralConfig;
+        } else {
+            localDraft = neutralConfig;
+        }
+        scrollRow = 0;
+        knownPickerOpen = false;
+        knownPickerScroll = 0;
+        sectionPickerOpen = false;
+        sectionPickerScroll = 0;
+    }
+
+    private String resetFeedbackText() {
+        if (selectedTab == Tab.SERVER && manager().canEditServerConfig() || isSingleplayerSession()) {
+            return "Reset to neutral values. Click Save to store and apply.";
+        }
+        return "Reset to neutral values. Click Save to store.";
     }
 
     private void ensureDrafts() {
@@ -1235,7 +1799,7 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private void addRowLabel(String text, int x, int y, int maxWidth) {
-        labelLines.add(new LabelLine(fitText(text, Math.max(20, maxWidth)), x, y, 0xD8D8D8));
+        labelLines.add(new LabelLine(fitText(text, Math.max(20, maxWidth)), x, y, rowTextColor(y, NORMAL_TEXT_COLOR)));
     }
 
     private void drawCenteredStringWithBacking(GuiGraphics graphics, String rawText, int y, int color, int backgroundColor) {
@@ -1264,6 +1828,27 @@ public final class RidingTweaksConfigScreen extends Screen {
 
     private static String onOff(boolean value) {
         return value ? "On" : "Off";
+    }
+
+    private static String statLabelText(String statKey) {
+        return switch (RidingTweaksConfig.sanitizeStatKey(statKey)) {
+            case RidingTweaksConfig.STAT_ATTACK -> "Attack";
+            case RidingTweaksConfig.STAT_DEFENCE -> "Defence";
+            case RidingTweaksConfig.STAT_SPECIAL_ATTACK -> "Sp. Attack";
+            case RidingTweaksConfig.STAT_SPECIAL_DEFENCE -> "Sp. Defence";
+            case RidingTweaksConfig.STAT_SPEED -> "Speed";
+            default -> "HP";
+        };
+    }
+
+    private static String nextStatKey(String statKey) {
+        List<String> statKeys = RidingTweaksConfig.statKeys();
+        int index = statKeys.indexOf(RidingTweaksConfig.sanitizeStatKey(statKey));
+        return statKeys.get((index + 1) % statKeys.size());
+    }
+
+    private static boolean statHasNature(String statKey) {
+        return !RidingTweaksConfig.STAT_HP.equals(RidingTweaksConfig.sanitizeStatKey(statKey));
     }
 
     private static String stackingModeText(String mode) {
@@ -1296,6 +1881,22 @@ public final class RidingTweaksConfigScreen extends Screen {
                 : RidingTweaksConfig.SPECIES_MODE_STACKING;
     }
 
+    private static String ivEvModeText(String mode) {
+        return switch (normalizeKeyOrBlank(mode)) {
+            case RidingTweaksConfig.IV_EV_MODE_COMBINED -> "Combined";
+            case RidingTweaksConfig.IV_EV_MODE_SEPARATE -> "Separate";
+            default -> "Off";
+        };
+    }
+
+    private static String nextIvEvMode(String mode) {
+        return switch (normalizeKeyOrBlank(mode)) {
+            case RidingTweaksConfig.IV_EV_MODE_OFF -> RidingTweaksConfig.IV_EV_MODE_COMBINED;
+            case RidingTweaksConfig.IV_EV_MODE_COMBINED -> RidingTweaksConfig.IV_EV_MODE_SEPARATE;
+            default -> RidingTweaksConfig.IV_EV_MODE_OFF;
+        };
+    }
+
     private static List<Component> stackingModeTooltip() {
         return List.of(
                 Component.literal("Additive adds each change from x1."),
@@ -1322,11 +1923,35 @@ public final class RidingTweaksConfigScreen extends Screen {
         );
     }
 
+    private static List<Component> statKeyTooltip() {
+        return List.of(
+                Component.literal("Chooses which Pokemon stat feeds this stamina stat-scaling section."),
+                Component.literal("HP is the default endurance-like stat. Other stats can use nature scaling too.").withStyle(ChatFormatting.GRAY)
+        );
+    }
+
+    private static List<Component> ivEvModeTooltip(String statName) {
+        return List.of(
+                Component.literal("Off ignores " + statName + " IV and " + statName + " EV."),
+                Component.literal("Combined scales from 0 to 283 using " + statName + " IV + " + statName + " EV."),
+                Component.literal("Separate scales " + statName + " IV and " + statName + " EV as two factors."),
+                Component.literal("These factors follow the Additive/Multiplicative multiplier mode from the General tab.").withStyle(ChatFormatting.GRAY)
+        );
+    }
+
     private static String formatDouble(double value) {
         if (value == Math.rint(value)) {
             return String.valueOf((long) value);
         }
         return String.format(Locale.ROOT, "%.4f", value).replaceAll("0+$", "").replaceAll("\\.$", "");
+    }
+
+    private static String displayKey(String key) {
+        if (key == null || key.isBlank()) {
+            return "";
+        }
+        String normalized = key.replace('_', ' ').trim();
+        return normalized.substring(0, 1).toUpperCase(Locale.ROOT) + normalized.substring(1);
     }
 
     private static String normalizeKey(String value) {
@@ -1345,6 +1970,9 @@ public final class RidingTweaksConfigScreen extends Screen {
     }
 
     private record TooltipArea(int x, int y, int width, int height, List<Component> lines) {
+    }
+
+    private record MultiplierRange(double min, double max) {
     }
 
     @FunctionalInterface

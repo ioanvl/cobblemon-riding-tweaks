@@ -2,16 +2,16 @@
 
 Configurable stamina and speed multipliers for Cobblemon mounts.
 
-Cobblemon Riding Tweaks is a Minecraft 1.21.1 mod for Cobblemon 1.7.3. It lets servers and singleplayer worlds tune how long Pokemon can ride before running out of stamina, and how fast different mounts move, without editing Cobblemon data packs by hand.
+Cobblemon Riding Tweaks lets servers and singleplayer worlds tune how long Pokemon can ride before running out of stamina, and how fast different mounts move, without editing Cobblemon data packs by hand.
 
 ## Features
 
-- Stamina drain multipliers for Cobblemon riding.
-- Speed multipliers for ridden movement.
-- Separate settings for stamina and speed.
-- Level scaling between a level 1 multiplier and a level 100 multiplier, with linear extrapolation beyond level 100.
+- Separate ride speed and stamina drain multipliers.
+- Global stamina and speed multipliers for quick overall tuning.
+- Level scaling between a level 1 and level 100 (with linear extrapolation beyond level 100 if you have any such mods).
+- Optional stat scaling from Pokemon stats, IVs, EVs, natures, mints, and hyper training.
 - Ride style multipliers for land, liquid, and air.
-- Behaviour multipliers for all Cobblemon riding behaviours, such as horse, bird, jet, boat, dolphin, submarine, and more.
+- Behaviour multipliers for all Cobblemon riding behaviours, such as horse, bird, jet, boat, etc.
 - Label multipliers for Cobblemon form labels such as legendary, mythical, ultra beast, mega, primal, gmax, and any other labels.
 - Species overrides for specific Pokemon species IDs.
 - Additive or multiplicative multiplier combining.
@@ -33,7 +33,7 @@ If the server has the mod installed, compatible clients receive the server's rid
 
 Most values are multipliers. `1.0` means no change, values above `1.0` make stamina last longer or speed faster, and values below `1.0` make stamina drain faster or speed slower.
 
-The config screen edits a draft. Changes are only written and applied when you press **Save**.
+Changes are only written and applied when you press **Save**.
 
 ## Command
 

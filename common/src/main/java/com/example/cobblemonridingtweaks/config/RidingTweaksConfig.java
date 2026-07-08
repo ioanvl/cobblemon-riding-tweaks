@@ -6,13 +6,22 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class RidingTweaksConfig {
-    public static final String SUPPORTED_CONFIG_VERSION = "1.0.0";
+    public static final String SUPPORTED_CONFIG_VERSION = "1.1.0";
     public static final String STACKING_MODE_ADDITIVE = "additive";
     public static final String STACKING_MODE_MULTIPLICATIVE = "multiplicative";
     public static final String LABEL_MODE_HIGHEST = "highest";
     public static final String LABEL_MODE_STACKING = "stacking";
     public static final String SPECIES_MODE_OVERRIDE = "override";
     public static final String SPECIES_MODE_STACKING = "stacking";
+    public static final String IV_EV_MODE_OFF = "off";
+    public static final String IV_EV_MODE_COMBINED = "combined";
+    public static final String IV_EV_MODE_SEPARATE = "separate";
+    public static final String STAT_HP = "hp";
+    public static final String STAT_ATTACK = "attack";
+    public static final String STAT_DEFENCE = "defence";
+    public static final String STAT_SPECIAL_ATTACK = "special_attack";
+    public static final String STAT_SPECIAL_DEFENCE = "special_defence";
+    public static final String STAT_SPEED = "speed";
     private static final String STACKING_MODE_STACKING_ALIAS = "stacking";
     private static final String SPECIES_MODE_REPLACE_ALIAS = "replace";
 
@@ -82,6 +91,34 @@ public final class RidingTweaksConfig {
         return SPECIES_MODE_OVERRIDE;
     }
 
+    private static String sanitizeIvEvMode(String value) {
+        if (value == null) {
+            return IV_EV_MODE_OFF;
+        }
+
+        String normalized = normalizeKey(value);
+        if (IV_EV_MODE_COMBINED.equals(normalized) || IV_EV_MODE_SEPARATE.equals(normalized)) {
+            return normalized;
+        }
+        return IV_EV_MODE_OFF;
+    }
+
+    public static String sanitizeStatKey(String value) {
+        if (value == null) {
+            return STAT_HP;
+        }
+
+        String normalized = normalizeKey(value);
+        if (STAT_ATTACK.equals(normalized)
+                || STAT_DEFENCE.equals(normalized)
+                || STAT_SPECIAL_ATTACK.equals(normalized)
+                || STAT_SPECIAL_DEFENCE.equals(normalized)
+                || STAT_SPEED.equals(normalized)) {
+            return normalized;
+        }
+        return STAT_HP;
+    }
+
     private static Map<String, Double> sanitizeMultiplierMap(
             Map<String, Double> map,
             Map<String, Double> fallback,
@@ -147,6 +184,17 @@ public final class RidingTweaksConfig {
         return label != null && knownCobblemonLabels().contains(normalizeKey(label));
     }
 
+    public static List<String> statKeys() {
+        return List.of(
+                STAT_HP,
+                STAT_ATTACK,
+                STAT_DEFENCE,
+                STAT_SPECIAL_ATTACK,
+                STAT_SPECIAL_DEFENCE,
+                STAT_SPEED
+        );
+    }
+
     public static List<String> knownCobblemonLabels() {
         return List.of(
                 "legendary",
@@ -189,6 +237,8 @@ public final class RidingTweaksConfig {
     }
 
     public static final class StaminaTweaks extends FeatureTweaks {
+        public StaminaStatScaling statScaling = new StaminaStatScaling();
+
         public StaminaTweaks() {
             rideStyleMultipliers = allRideStyleMultipliers();
             behaviourMultipliers = allBehaviourMultipliers();
@@ -198,10 +248,16 @@ public final class RidingTweaksConfig {
 
         private void sanitize() {
             super.sanitize(true);
+            if (statScaling == null) {
+                statScaling = new StaminaStatScaling();
+            }
+            statScaling.sanitize();
         }
     }
 
     public static final class SpeedTweaks extends FeatureTweaks {
+        public SpeedStatScaling statScaling = new SpeedStatScaling();
+
         public SpeedTweaks() {
             rideStyleMultipliers = allRideStyleMultipliers();
             behaviourMultipliers = allBehaviourMultipliers();
@@ -211,12 +267,17 @@ public final class RidingTweaksConfig {
 
         private void sanitize() {
             super.sanitize(true);
+            if (statScaling == null) {
+                statScaling = new SpeedStatScaling();
+            }
+            statScaling.sanitize();
         }
     }
 
     public static class FeatureTweaks {
         public boolean enabled = true;
         public String stackingMode = STACKING_MODE_ADDITIVE;
+        public double globalMultiplier = 1.0D;
         public boolean levelScalingEnabled = true;
         public boolean ridingMultipliersEnabled = true;
         public boolean labelMultipliersEnabled = true;
@@ -236,6 +297,7 @@ public final class RidingTweaksConfig {
             stackingMode = sanitizeStackingMode(stackingMode);
             labelMode = sanitizeLabelMode(labelMode);
             speciesMode = sanitizeSpeciesMode(speciesMode);
+            globalMultiplier = sanitizeMultiplier(globalMultiplier, 1.0D);
             rideStyleMultipliers = sanitizeMultiplierMap(rideStyleMultipliers, allRideStyleMultipliers(), includeKnownKeys);
             behaviourMultipliers = sanitizeMultiplierMap(behaviourMultipliers, allBehaviourMultipliers(), includeKnownKeys);
             labelMultipliers = sanitizeMultiplierMap(labelMultipliers, defaultLabelMultipliers(), includeKnownKeys);
@@ -259,5 +321,44 @@ public final class RidingTweaksConfig {
             level1Multiplier = sanitizeMultiplier(level1Multiplier, 1.0D);
             level100Multiplier = sanitizeMultiplier(level100Multiplier, 1.0D);
         }
+    }
+
+    public static class IvEvStatScaling {
+        public String ivEvScalingMode = IV_EV_MODE_OFF;
+        public boolean allowHyperTraining = true;
+        public double combinedZeroMultiplier = 1.0D;
+        public double combinedMaxMultiplier = 1.0D;
+        public double ivZeroMultiplier = 1.0D;
+        public double ivMaxMultiplier = 1.0D;
+        public double evZeroMultiplier = 1.0D;
+        public double evMaxMultiplier = 1.0D;
+
+        protected void sanitize() {
+            ivEvScalingMode = sanitizeIvEvMode(ivEvScalingMode);
+            combinedZeroMultiplier = sanitizeMultiplier(combinedZeroMultiplier, 1.0D);
+            combinedMaxMultiplier = sanitizeMultiplier(combinedMaxMultiplier, 1.0D);
+            ivZeroMultiplier = sanitizeMultiplier(ivZeroMultiplier, 1.0D);
+            ivMaxMultiplier = sanitizeMultiplier(ivMaxMultiplier, 1.0D);
+            evZeroMultiplier = sanitizeMultiplier(evZeroMultiplier, 1.0D);
+            evMaxMultiplier = sanitizeMultiplier(evMaxMultiplier, 1.0D);
+        }
+    }
+
+    public static class NatureIvEvStatScaling extends IvEvStatScaling {
+        public boolean natureScalingEnabled = false;
+        public boolean allowMints = true;
+    }
+
+    public static final class StaminaStatScaling extends NatureIvEvStatScaling {
+        public String stat = STAT_HP;
+
+        @Override
+        protected void sanitize() {
+            super.sanitize();
+            stat = sanitizeStatKey(stat);
+        }
+    }
+
+    public static final class SpeedStatScaling extends NatureIvEvStatScaling {
     }
 }

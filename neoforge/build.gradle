@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation "maven.modrinth:cobblemon:${cobblemon_neoforge_version_id}"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${kotlin_version}"
 }
 
 neoForge {
