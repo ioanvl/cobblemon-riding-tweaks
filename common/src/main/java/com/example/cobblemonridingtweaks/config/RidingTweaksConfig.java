@@ -31,6 +31,47 @@ public final class RidingTweaksConfig {
     public StaminaTweaks stamina = new StaminaTweaks();
     public SpeedTweaks speed = new SpeedTweaks();
 
+    /** Creates an independent preset for editing; fresh configs remain neutral by default. */
+    public static RidingTweaksConfig balancedPreset() {
+        RidingTweaksConfig config = new RidingTweaksConfig();
+        for (FeatureTweaks feature : List.of(config.stamina, config.speed)) {
+            feature.stackingMode = STACKING_MODE_MULTIPLICATIVE;
+            feature.levelScaling.level1Multiplier = 0.9D;
+            feature.minFinalMultiplier = 0.8D;
+        }
+        config.stamina.levelScaling.level100Multiplier = 3.5D;
+        config.speed.levelScaling.level100Multiplier = 1.5D;
+        config.stamina.maxFinalMultiplier = 6.5D;
+        config.speed.maxFinalMultiplier = 2.5D;
+
+        for (NatureIvEvStatScaling scaling : List.of(config.stamina.statScaling, config.speed.statScaling)) {
+            scaling.ivEvScalingMode = IV_EV_MODE_SEPARATE;
+            scaling.ivZeroMultiplier = 0.95D;
+            scaling.ivMaxMultiplier = 1.1D;
+        }
+        config.stamina.statScaling.evZeroMultiplier = 0.9D;
+        config.stamina.statScaling.evMaxMultiplier = 1.35D;
+        config.speed.statScaling.evZeroMultiplier = 0.95D;
+        config.speed.statScaling.evMaxMultiplier = 1.2D;
+        config.speed.statScaling.natureScalingEnabled = true;
+
+        config.stamina.labelMultipliers.putAll(Map.of(
+                "powerhouse", 1.15D,
+                "ultra_beast", 1.2D,
+                "legendary", 1.25D,
+                "mythical", 1.25D,
+                "restricted", 1.3D
+        ));
+        config.speed.labelMultipliers.putAll(Map.of(
+                "powerhouse", 1.05D,
+                "ultra_beast", 1.1D,
+                "legendary", 1.15D,
+                "mythical", 1.15D,
+                "restricted", 1.2D
+        ));
+        return config.sanitize();
+    }
+
     public RidingTweaksConfig sanitize() {
         if (configVersion == null || configVersion.isBlank()) {
             configVersion = SUPPORTED_CONFIG_VERSION;

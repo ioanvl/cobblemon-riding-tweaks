@@ -338,7 +338,7 @@ public final class RidingTweaksConfigScreen extends Screen {
         addHeader("Configuration", 21);
         addToggle("Debug Logging", config.debugLogging, value -> config.debugLogging = value, centerX, rowY(22), 0,
                 "Writes extra config and sync details to the log.");
-        addResetButton("Config Reset", centerX, rowY(23));
+        addPresetButtons(rowY(23));
         if (shouldShowRow(24)) {
             addLabel("Config Version", config.configVersion, centerX, rowY(24));
         }
@@ -580,20 +580,32 @@ public final class RidingTweaksConfigScreen extends Screen {
         addRowLabel(label, labelX() + indent, y + 6, labelWidth() - indent);
     }
 
-    private void addResetButton(String label, int centerX, int y) {
+    private void addPresetButtons(int y) {
         if (y < rowsTop() || y >= rowViewportBottom()) {
             return;
         }
 
-        String tooltip = "Resets this config to neutral x1 values. Nothing is written until you click Save.";
-        Button button = Button.builder(Component.literal("Clear"), pressed -> showResetConfirmation())
-                .bounds(valueX(), y, valueWidth(), 20)
+        // The pair needs more room than a normal value field, especially at high GUI scales.
+        int minButtonWidth = Math.max(this.font.width(Preset.DEFAULT.displayName), this.font.width(Preset.BALANCED.displayName)) + 16;
+        int pairWidth = Math.min(contentWidth(), Math.max(valueWidth(), minButtonWidth * 2 + FIELD_GAP));
+        int firstWidth = (pairWidth - FIELD_GAP) / 2;
+        int x = contentRight() - pairWidth;
+        addPresetButton(Preset.DEFAULT, x, y, firstWidth);
+        addPresetButton(Preset.BALANCED, x + firstWidth + FIELD_GAP, y, pairWidth - firstWidth - FIELD_GAP);
+
+        int availableLabelWidth = x - labelX() - FIELD_GAP;
+        if (availableLabelWidth >= this.font.width("Presets")) {
+            addRowLabel("Presets", labelX(), y + 6, availableLabelWidth);
+        }
+    }
+
+    private void addPresetButton(Preset preset, int x, int y, int width) {
+        Button button = Button.builder(Component.literal(preset.displayName), pressed -> showPresetConfirmation(preset))
+                .bounds(x, y, width, 20)
                 .build();
         button.active = selectedTabIsEditable();
-        setTooltip(button, tooltip);
+        setTooltip(button, preset.description + " Replaces current riding settings and custom overrides. Nothing is written until you click Save.");
         addRenderableWidget(button);
-        addTooltipArea(labelX(), y, labelWidth(), 20, tooltip);
-        addRowLabel(label, labelX(), y + 6);
     }
 
     private void addStackingModeToggle(String label, RidingTweaksConfig.FeatureTweaks feature, int centerX, int y, int indent) {
@@ -1737,32 +1749,35 @@ public final class RidingTweaksConfigScreen extends Screen {
         rebuild();
     }
 
-    private void showResetConfirmation() {
+    private void showPresetConfirmation(Preset preset) {
         if (!selectedTabIsEditable() || this.minecraft == null) {
             return;
         }
 
         this.minecraft.setScreen(new ConfirmScreen(
                 confirmed -> {
-                    if (confirmed) {
-                        resetCurrentDraftToNeutral();
-                        showFeedback(resetFeedbackText(), true);
+                    if (confirmed && selectedTabIsEditable()) {
+                        replaceCurrentDraftWithPreset(preset);
+                        showFeedback(presetFeedbackText(preset), true);
                     }
                     this.minecraft.setScreen(this);
                 },
-                Component.literal("Clear config values?"),
-                Component.literal("This resets this config to neutral x1 values. Nothing is written until you click Save."),
+                Component.literal("Load " + preset.displayName + " preset?"),
+                Component.literal(preset.description + " This replaces current riding settings and custom overrides. Nothing is written until you click Save."),
                 Component.literal("Yes"),
                 Component.literal("No")
         ));
     }
 
-    private void resetCurrentDraftToNeutral() {
-        RidingTweaksConfig neutralConfig = new RidingTweaksConfig().sanitize();
+    private void replaceCurrentDraftWithPreset(Preset preset) {
+        RidingTweaksConfig config = preset == Preset.BALANCED
+                ? RidingTweaksConfig.balancedPreset()
+                : new RidingTweaksConfig().sanitize();
+        config.debugLogging = viewingConfig().debugLogging;
         if (selectedTab == Tab.SERVER) {
-            serverDraft = neutralConfig;
+            serverDraft = config;
         } else {
-            localDraft = neutralConfig;
+            localDraft = config;
         }
         scrollRow = 0;
         knownPickerOpen = false;
@@ -1771,11 +1786,12 @@ public final class RidingTweaksConfigScreen extends Screen {
         sectionPickerScroll = 0;
     }
 
-    private String resetFeedbackText() {
+    private String presetFeedbackText(Preset preset) {
+        String prefix = preset.displayName + " preset loaded. Click Save to ";
         if (selectedTab == Tab.SERVER && manager().canEditServerConfig() || isSingleplayerSession()) {
-            return "Reset to neutral values. Click Save to store and apply.";
+            return prefix + "store and apply.";
         }
-        return "Reset to neutral values. Click Save to store.";
+        return prefix + "store.";
     }
 
     private void ensureDrafts() {
@@ -1978,6 +1994,19 @@ public final class RidingTweaksConfigScreen extends Screen {
     @FunctionalInterface
     public interface ServerConfigUpdateSender {
         void send(String configJson);
+    }
+
+    private enum Preset {
+        DEFAULT("Default", "Restores neutral x1 riding multipliers."),
+        BALANCED("Balanced", "Adds level, HP/Speed training and rarity bonuses, with mints and hypertraining enabled.");
+
+        private final String displayName;
+        private final String description;
+
+        Preset(String displayName, String description) {
+            this.displayName = displayName;
+            this.description = description;
+        }
     }
 
     private enum Tab {

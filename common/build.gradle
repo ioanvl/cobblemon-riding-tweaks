@@ -54,6 +54,16 @@ tasks.register('configCompatibilityTest', JavaExec) {
     }
 }
 
+tasks.register('configPresetTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.config.ConfigPresetTest'
+    workingDir layout.buildDirectory.dir('config-preset-test')
+    doFirst {
+        workingDir.mkdirs()
+    }
+}
+
 tasks.named('check') {
-    dependsOn ridingRegressionTest, configCompatibilityTest
+    dependsOn ridingRegressionTest, configCompatibilityTest, configPresetTest
 }
