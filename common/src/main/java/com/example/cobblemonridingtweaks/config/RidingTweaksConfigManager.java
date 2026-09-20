@@ -644,7 +644,7 @@ public final class RidingTweaksConfigManager {
             String configVersion = readConfigVersion(json);
             if (!isCompatibleConfigVersion(configVersion, RidingTweaksConfig.SUPPORTED_CONFIG_VERSION)) {
                 LOGGER.warn(
-                        "Rejected submitted {} config version {}; this server requires config major/minor compatible with {}",
+                        "Rejected submitted {} config version {}; this server requires config version {} exactly",
                         CobblemonRidingTweaks.MOD_NAME,
                         configVersion,
                         RidingTweaksConfig.SUPPORTED_CONFIG_VERSION
@@ -684,9 +684,9 @@ public final class RidingTweaksConfigManager {
     }
 
     private static boolean isCompatibleConfigVersion(String candidate, String supported) {
-        int[] candidateParts = parseVersion(candidate);
-        int[] supportedParts = parseVersion(supported);
-        return candidateParts[0] == supportedParts[0] && candidateParts[1] == supportedParts[1];
+        // Config versions identify compatible mechanics independently of the mod version.
+        // Keep numeric parsing for local migrations, but require an exact wire version.
+        return supported != null && supported.equals(candidate);
     }
 
     private static int[] parseVersion(String version) {

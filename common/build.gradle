@@ -44,6 +44,16 @@ tasks.register('ridingRegressionTest', JavaExec) {
     mainClass = 'com.example.cobblemonridingtweaks.riding.RidingRegressionTest'
 }
 
+tasks.register('configCompatibilityTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.config.ConfigCompatibilityTest'
+    workingDir layout.buildDirectory.dir('config-compatibility-test')
+    doFirst {
+        workingDir.mkdirs()
+    }
+}
+
 tasks.named('check') {
-    dependsOn ridingRegressionTest
+    dependsOn ridingRegressionTest, configCompatibilityTest
 }

@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class RidingTweaksConfig {
-    public static final String SUPPORTED_CONFIG_VERSION = "1.1.0";
+    public static final String SUPPORTED_CONFIG_VERSION = "1.2.0";
     public static final String STACKING_MODE_ADDITIVE = "additive";
     public static final String STACKING_MODE_MULTIPLICATIVE = "multiplicative";
     public static final String LABEL_MODE_HIGHEST = "highest";
