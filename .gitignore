@@ -37,3 +37,6 @@ docs/ai/
 .continue/
 
 .github/copilot-instructions.md
+
+# Repository-local tools and authentication settings
+/.local/
