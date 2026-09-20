@@ -4,7 +4,11 @@
   "package": "com.example.cobblemonridingtweaks.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "PokemonEntityMixin"
+    "PokemonEntityMixin",
+    "StaminaDrainMixin",
+    "BirdBehaviourMixin",
+    "BoatStaminaMixin",
+    "RocketBehaviourMixin"
   ],
   "client": [],
   "injectors": {

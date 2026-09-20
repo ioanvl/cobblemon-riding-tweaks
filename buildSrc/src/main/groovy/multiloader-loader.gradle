@@ -42,3 +42,20 @@ tasks.named('sourcesJar', Jar) {
     dependsOn(configurations.commonResources)
     from(configurations.commonResources)
 }
+
+sourceSets.test {
+    java.srcDir rootProject.file('tests/mixin/java')
+    resources.srcDir rootProject.file('tests/mixin/resources')
+    compileClasspath += sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.compileClasspath
+}
+
+tasks.register('ridingMixinTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.test.RidingMixinTest'
+}
+
+tasks.named('check') {
+    dependsOn ridingMixinTest
+}
