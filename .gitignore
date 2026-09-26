@@ -25,6 +25,10 @@ bin/
 hs_err_pid*
 replay_pid*
 
+# Python release tooling
+__pycache__/
+*.pyc
+
 # Memory
 AGENTS.md
 CLAUDE.md

@@ -1,0 +1,145 @@
+name: Publish mod releases
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published GitHub release tag (for example v1.3.0)
+        required: true
+        type: string
+      platform:
+        description: Destination
+        type: choice
+        options: [all, modrinth, curseforge]
+        default: all
+      loader:
+        description: Loader
+        type: choice
+        options: [all, fabric, neoforge]
+        default: all
+      publish:
+        description: Upload to the selected stores (unchecked means dry run)
+        type: boolean
+        default: false
+      retry_unconfirmed:
+        description: I checked the store and the previous uncertain upload is absent
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  select:
+    if: >-
+      github.repository == 'ioanvl/cobblemon-riding-tweaks' &&
+      ((github.event_name == 'release' && !github.event.release.prerelease &&
+        vars.PUBLISH_RELEASES == 'true') ||
+       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          PLATFORM: ${{ inputs.platform || 'all' }}
+          LOADER: ${{ inputs.loader || 'all' }}
+          RETRY: ${{ inputs.retry_unconfirmed || false }}
+        run: |
+          python3 - <<'PY'
+          import itertools, json, os
+          platforms = ['modrinth', 'curseforge']
+          loaders = ['fabric', 'neoforge']
+          assert os.environ['PLATFORM'] in ['all'] + platforms
+          assert os.environ['LOADER'] in ['all'] + loaders
+          if os.environ['RETRY'] == 'true':
+              assert os.environ['PLATFORM'] != 'all' and os.environ['LOADER'] != 'all', 'Select one store and loader for an uncertain retry'
+          entries = [{'platform': p, 'loader': l} for p, l in itertools.product(platforms, loaders)
+                     if os.environ['PLATFORM'] in ['all', p] and os.environ['LOADER'] in ['all', l]]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('matrix=' + json.dumps({'include': entries}) + '\n')
+          PY
+
+  publish:
+    needs: select
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      deployments: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.select.outputs.matrix) }}
+    concurrency:
+      group: publish-${{ github.event.release.tag_name || inputs.tag }}-${{ matrix.platform }}-${{ matrix.loader }}
+      cancel-in-progress: false
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      PUBLISH_PLATFORM: ${{ matrix.platform }}
+      PUBLISH_LOADER: ${{ matrix.loader }}
+      DO_PUBLISH: ${{ github.event_name == 'release' || inputs.publish }}
+      RETRY_UNCONFIRMED: ${{ inputs.retry_unconfirmed || false }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Check release and download the reviewed jar
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_publish.py prepare
+      - name: Check publishing credential
+        if: env.DO_PUBLISH == 'true' && steps.prepare.outputs.exists != 'true'
+        env:
+          MODRINTH_TOKEN: ${{ matrix.platform == 'modrinth' && secrets.MODRINTH_TOKEN || '' }}
+          CURSEFORGE_TOKEN: ${{ matrix.platform == 'curseforge' && secrets.CURSEFORGE_TOKEN || '' }}
+        run: |
+          if [ "$PUBLISH_PLATFORM" = modrinth ]; then
+            PUBLISH_TOKEN="$MODRINTH_TOKEN"
+          else
+            PUBLISH_TOKEN="$CURSEFORGE_TOKEN"
+          fi
+          if [ -z "$PUBLISH_TOKEN" ]; then
+            echo '::error::Missing publishing token for the selected store. See docs/publishing.md.'
+            exit 1
+          fi
+      - name: Record upload attempt
+        id: reserve
+        if: env.DO_PUBLISH == 'true' && steps.prepare.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_publish.py reserve
+      - name: Upload jar
+        id: upload
+        if: steps.reserve.outputs.deployment_id != ''
+        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075 # v3.3.1
+        with:
+          modrinth-id: ${{ matrix.platform == 'modrinth' && '8JWE9x1o' || '' }}
+          modrinth-token: ${{ matrix.platform == 'modrinth' && secrets.MODRINTH_TOKEN || '' }}
+          modrinth-unfeature-mode: none
+          curseforge-id: ${{ matrix.platform == 'curseforge' && '1592779' || '' }}
+          curseforge-token: ${{ matrix.platform == 'curseforge' && secrets.CURSEFORGE_TOKEN || '' }}
+          files: ${{ steps.prepare.outputs.file }}
+          name: ${{ steps.prepare.outputs.name }}
+          version: ${{ steps.prepare.outputs.version }}
+          version-type: release
+          changelog-file: build/publishing/changelog.md
+          loaders: ${{ matrix.loader }}
+          game-versions: ${{ steps.prepare.outputs.minecraft }}
+          game-version-filter: releases
+          java: '21'
+          environment: client | server
+          dependencies: ${{ steps.prepare.outputs.dependencies }}
+          retry-attempts: 1
+          fail-mode: fail
+      - name: Record upload result
+        if: always() && steps.reserve.outputs.deployment_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_ID: ${{ steps.reserve.outputs.deployment_id }}
+          UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+          UPLOAD_URL: ${{ steps.upload.outputs.modrinth-url || steps.upload.outputs.curseforge-url }}
+        run: python3 scripts/release_publish.py finish
