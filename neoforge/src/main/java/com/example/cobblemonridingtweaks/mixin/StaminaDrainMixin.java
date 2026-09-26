@@ -17,6 +17,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Coerce;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
+// All these stamina ticks are client-side; keep this mixin in the client config list.
+// Transforming Hover on a dedicated server resolves its client-only frame types.
 @Mixin({HorseBehaviour.class, DolphinBehaviour.class, SubmarineBehaviour.class,
         BirdBehaviour.class, HoverBehaviour.class, JetBehaviour.class, RocketBehaviour.class})
 public abstract class StaminaDrainMixin {

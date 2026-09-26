@@ -5,12 +5,13 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "PokemonEntityMixin",
-    "StaminaDrainMixin",
     "BirdBehaviourMixin",
     "BoatStaminaMixin",
     "RocketBehaviourMixin"
   ],
-  "client": [],
+  "client": [
+    "StaminaDrainMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

@@ -54,8 +54,21 @@ tasks.register('ridingMixinTest', JavaExec) {
     dependsOn testClasses
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.example.cobblemonridingtweaks.test.RidingMixinTest'
+    args 'CLIENT'
+    workingDir layout.buildDirectory.dir('riding-mixin-test/client')
+    doFirst { workingDir.mkdirs() }
+}
+
+// Mixin's side/configuration is process-global; exercise servers in a fresh JVM.
+tasks.register('ridingServerMixinTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.test.RidingMixinTest'
+    args 'SERVER'
+    workingDir layout.buildDirectory.dir('riding-mixin-test/server')
+    doFirst { workingDir.mkdirs() }
 }
 
 tasks.named('check') {
-    dependsOn ridingMixinTest
+    dependsOn ridingMixinTest, ridingServerMixinTest
 }
