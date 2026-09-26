@@ -4,7 +4,7 @@
 
 - Fix a NeoForge dedicated-server startup crash caused by client-only stamina hooks loading on the server.
 - Add stamina and speed overrides for individual Pokémon forms. Existing species overrides continue to apply to All forms.
-- Refresh the config screen with sidebar navigation and searchable species, form and label dropdowns.
+- Refresh the config screen UI with sidebar navigation and searchable species, form and label dropdowns.
 
 Config version is now `1.3.0`. Existing config files migrate automatically without losing settings. Update servers and clients together: multiplayer sync/editing requires matching config versions. Incompatible clients fall back to neutral `x1` tweaks.
 
