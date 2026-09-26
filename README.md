@@ -47,8 +47,8 @@ Config versions must match exactly for multiplayer sync and editing, including t
 
 Install the correct jar for your loader:
 
-- Fabric: `cobblemon_riding_tweaks-fabric-1.21.1-1.2.0.jar`
-- NeoForge: `cobblemon_riding_tweaks-neoforge-1.21.1-1.2.0.jar`
+- Fabric: `cobblemon_riding_tweaks-fabric-1.21.1-1.3.0.jar`
+- NeoForge: `cobblemon_riding_tweaks-neoforge-1.21.1-1.3.0.jar`
 
 For multiplayer servers, install the mod on the server and on clients that should use the configured riding tweaks.
 
@@ -62,7 +62,7 @@ config/cobblemon-riding-tweaks.json
 
 Most values are multipliers. `1.0` means no change, values above `1.0` make stamina last longer or speed faster, and values below `1.0` make stamina drain faster or speed slower. The mod keeps multiplier values at or above `0.01` internally, so zero or negative entries do not break the math.
 
-This development branch uses config version `1.3.0` for form-specific species overrides; the published mod `1.2.0` uses config `1.2.0`. Existing local/server files migrate automatically without resetting settings. Update the server and clients together when the config version changes: config `1.3.0` accepts only `1.3.0`, including the patch number. Incompatible clients can still join using neutral `x1` tweaks; this check does not enforce client versions or prevent modified clients.
+Version `1.3.0` uses config version `1.3.0` for form-specific species overrides. Existing local/server files migrate automatically without resetting settings. Update the server and clients together when the config version changes: config `1.3.0` accepts only `1.3.0`, including the patch number. Incompatible clients can still join using neutral `x1` tweaks; this check does not enforce client versions or prevent modified clients.
 
 Changes in the config screen are only written when you press **Save**.
 
