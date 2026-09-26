@@ -45,6 +45,7 @@ tasks.named('sourcesJar', Jar) {
 
 sourceSets.test {
     java.srcDir rootProject.file('tests/mixin/java')
+    java.srcDir rootProject.file('tests/forms/java')
     resources.srcDir rootProject.file('tests/mixin/resources')
     compileClasspath += sourceSets.main.compileClasspath
     runtimeClasspath += sourceSets.main.compileClasspath
@@ -69,6 +70,30 @@ tasks.register('ridingServerMixinTest', JavaExec) {
     doFirst { workingDir.mkdirs() }
 }
 
+tasks.register('speciesFormTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.test.SpeciesFormTest'
+    workingDir layout.buildDirectory.dir('species-form-test')
+    doFirst { workingDir.mkdirs() }
+}
+
+tasks.register('formPickerTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.client.FormPickerTest'
+    workingDir layout.buildDirectory.dir('form-picker-test')
+    doFirst { workingDir.mkdirs() }
+}
+
+tasks.register('configScreenTest', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.example.cobblemonridingtweaks.client.ConfigScreenTest'
+    workingDir layout.buildDirectory.dir('config-screen-test')
+    doFirst { workingDir.mkdirs() }
+}
+
 tasks.named('check') {
-    dependsOn ridingMixinTest, ridingServerMixinTest
+    dependsOn ridingMixinTest, ridingServerMixinTest, speciesFormTest, formPickerTest, configScreenTest
 }

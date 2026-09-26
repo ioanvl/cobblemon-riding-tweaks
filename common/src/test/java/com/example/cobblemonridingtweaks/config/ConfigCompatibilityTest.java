@@ -35,8 +35,8 @@ public final class ConfigCompatibilityTest {
             Path file = directory.resolve("cobblemon-riding-tweaks.json");
             Files.writeString(file, GSON.toJson(original));
             RidingTweaksConfigManager manager = RidingTweaksConfigManager.load(directory);
-            check(manager.config().configVersion.equals("1.2.0"), "Local config must migrate to 1.2.0");
-            original.configVersion = "1.2.0";
+            check(manager.config().configVersion.equals("1.3.0"), "Local config must migrate to 1.3.0");
+            original.configVersion = "1.3.0";
             check(GSON.toJsonTree(original).equals(JsonParser.parseString(Files.readString(file))),
                     "Migration must preserve every setting from " + oldVersion);
             manager.reload();
@@ -50,9 +50,9 @@ public final class ConfigCompatibilityTest {
         String localBefore = manager.localConfigJson();
         manager.awaitServerConfig();
         checkNeutral(manager);
-        for (String incompatible : List.of("1.1.0", "1.1.99", "1.2.1", "1.2.99", "1.3.0", "2.2.0",
-                "1.2", "1.2.-1", "1.2.0.1", "01.2.0", "1.2.0-beta", "")) {
-            var result = manager.applyServerConfigWithResult(GSON.toJson(fixture("1.2.0")), true);
+        for (String incompatible : List.of("1.1.0", "1.1.99", "1.2.0", "1.3.1", "1.2.1", "1.2.99", "1.4.0", "2.2.0",
+                "1.2", "1.2.-1", "1.3.0.1", "01.3.0", "1.3.0-beta", "")) {
+            var result = manager.applyServerConfigWithResult(GSON.toJson(fixture("1.3.0")), true);
             check(!result.versionMismatch(), "Identical config versions must be compatible");
             check(manager.canEditServerConfig(), "Compatible admin config must remain editable");
             check(speed(manager) == 0.75, "Compatible server speed must apply");
@@ -61,11 +61,11 @@ public final class ConfigCompatibilityTest {
             result = manager.applyServerConfigWithResult(GSON.toJson(fixture(incompatible)), true);
             check(result.versionMismatch(), "Must reject incompatible server config: " + incompatible);
             check(result.serverConfigVersion().equals(incompatible), "Warning must identify received version");
-            check(result.supportedConfigVersion().equals("1.2.0"), "Warning must identify supported version");
+            check(result.supportedConfigVersion().equals("1.3.0"), "Warning must identify supported version");
             checkNeutral(manager);
             check(!manager.canEditServerConfig(), "Incompatible server editing must be disabled");
         }
-        manager.applyServerConfigWithResult(GSON.toJson(fixture("1.2.0")), false);
+        manager.applyServerConfigWithResult(GSON.toJson(fixture("1.3.0")), false);
         check(!manager.canEditServerConfig(), "Version compatibility must not grant editing permission");
         check(manager.localConfigJson().equals(localBefore), "Server sync must not replace local settings");
         manager.clearServerConfig();
@@ -75,13 +75,13 @@ public final class ConfigCompatibilityTest {
     private static void submittedVersionsAreChecked(Path directory) throws Exception {
         RidingTweaksConfigManager manager = RidingTweaksConfigManager.load(directory);
         String before = Files.readString(manager.path());
-        for (String incompatible : List.of("1.1.0", "1.1.99", "1.2.1", "1.2.99", "1.3.0", "2.2.0",
-                "1.2", "1.2.-1", "1.2.0.1", "01.2.0", "1.2.0-beta", "")) {
+        for (String incompatible : List.of("1.1.0", "1.1.99", "1.2.0", "1.3.1", "1.2.1", "1.2.99", "1.4.0", "2.2.0",
+                "1.2", "1.2.-1", "1.3.0.1", "01.3.0", "1.3.0-beta", "")) {
             check(!manager.replaceFromRemoteJson(GSON.toJson(fixture(incompatible))),
                     "Incompatible server edit must be rejected: " + incompatible);
             check(Files.readString(manager.path()).equals(before), "Rejected edit must not change disk settings");
         }
-        RidingTweaksConfig compatible = fixture("1.2.0");
+        RidingTweaksConfig compatible = fixture("1.3.0");
         compatible.speed.globalMultiplier = 1.25;
         check(manager.replaceFromRemoteJson(GSON.toJson(compatible)), "An exact version match must be accepted");
         check(speed(manager) == 1.25, "Accepted edit must take effect");
@@ -95,7 +95,7 @@ public final class ConfigCompatibilityTest {
         config.stamina.globalMultiplier = 2.5;
         config.speed.globalMultiplier = 0.75;
         config.stamina.statScaling.stat = RidingTweaksConfig.STAT_SPEED;
-        config.stamina.speciesOverrides.put("cobblemon:pidgeot", 3.0);
+        config.stamina.speciesOverrides.add(new RidingTweaksConfig.SpeciesOverride("cobblemon:pidgeot", "*", 3.0));
         config.speed.behaviourMultipliers.put("bird", 0.5);
         config.sanitize();
         // Keep malformed wire versions intact instead of sanitizing them into the supported version.
@@ -104,12 +104,12 @@ public final class ConfigCompatibilityTest {
     }
 
     private static double speed(RidingTweaksConfigManager manager) {
-        return manager.speedMultiplier(50, List.of(), "cobblemon:bouffalant", "land", "horse",
+        return manager.speedMultiplier(50, List.of(), "cobblemon:bouffalant", "normal", "land", "horse",
                 0, 0, 0, false, false, false, false);
     }
 
     private static double endurance(RidingTweaksConfigManager manager) {
-        return manager.enduranceMultiplier(50, List.of(), "cobblemon:bouffalant", "land", "horse",
+        return manager.enduranceMultiplier(50, List.of(), "cobblemon:bouffalant", "normal", "land", "horse",
                 0, 0, 0, false, false, false, false);
     }
 

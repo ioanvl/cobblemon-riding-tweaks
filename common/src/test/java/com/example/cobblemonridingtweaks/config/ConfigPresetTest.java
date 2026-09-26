@@ -16,7 +16,7 @@ public final class ConfigPresetTest {
 
             RidingTweaksConfig editedPreset = RidingTweaksConfig.balancedPreset();
             editedPreset.stamina.labelMultipliers.put("restricted", 99.0D);
-            editedPreset.speed.speciesOverrides.put("cobblemon:pidgeot", 0.01D);
+            editedPreset.speed.speciesOverrides.add(new RidingTweaksConfig.SpeciesOverride("cobblemon:pidgeot", "*", 0.01D));
             editedPreset.speed.statScaling.evMaxMultiplier = 0.01D;
             RidingTweaksConfig balanced = RidingTweaksConfig.balancedPreset();
             check(manager.localConfigJson().equals(defaultJson), "Creating/editing a preset must not change the active config");
@@ -68,9 +68,9 @@ public final class ConfigPresetTest {
 
     private static void expect(RidingTweaksConfigManager manager, int level, int naturalIv, int effectiveIv,
                                int ev, List<String> labels, int effectiveNature, double endurance, double speed) {
-        double actualEndurance = manager.enduranceMultiplier(level, labels, "cobblemon:pidgeot", "air", "bird",
+        double actualEndurance = manager.enduranceMultiplier(level, labels, "cobblemon:pidgeot", "normal", "air", "bird",
                 naturalIv, effectiveIv, ev, false, true, effectiveNature > 0, effectiveNature < 0);
-        double actualSpeed = manager.speedMultiplier(level, labels, "cobblemon:pidgeot", "air", "bird",
+        double actualSpeed = manager.speedMultiplier(level, labels, "cobblemon:pidgeot", "normal", "air", "bird",
                 naturalIv, effectiveIv, ev, false, true, effectiveNature > 0, effectiveNature < 0);
         check(Math.abs(actualEndurance - endurance) < 0.000001D,
                 "Expected endurance " + endurance + ", got " + actualEndurance + " at level " + level + " with " + labels);

@@ -2,6 +2,7 @@ package com.example.cobblemonridingtweaks.fabric.client;
 
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.example.cobblemonridingtweaks.client.RidingTweaksConfigScreen;
+import com.example.cobblemonridingtweaks.client.CobblemonCatalog;
 import com.example.cobblemonridingtweaks.net.ConfigClientHandlers;
 import com.example.cobblemonridingtweaks.net.ConfigEditResultPayload;
 import com.example.cobblemonridingtweaks.net.ConfigSyncPayload;
@@ -13,6 +14,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 public final class CobblemonRidingTweaksFabricClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        CobblemonCatalog.setBundledRoots(() -> net.fabricmc.loader.api.FabricLoader.getInstance()
+                .getModContainer("cobblemon").map(mod -> mod.getRootPaths().stream()
+                        .map(root -> root.resolve("data/cobblemon/species")).toList()).orElse(java.util.List.of()));
+        RidingTweaksConfigScreen.setCatalogProviders(CobblemonCatalog::species, CobblemonCatalog::forms, CobblemonCatalog::labels);
         RidingTweaksConfigScreen.setServerConfigUpdateSender(configJson ->
                 ClientPlayNetworking.send(new ConfigUpdatePayload(configJson))
         );

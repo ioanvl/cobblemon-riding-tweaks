@@ -41,6 +41,7 @@ public final class RidingMixinTest {
         Mixins.addConfiguration("cobblemon_riding_tweaks.mixins.json");
         Service service = (Service) MixinService.getService();
         IMixinTransformer transformer = service.transformer();
+        verifyFormInputs(service);
 
         String base = "com.cobblemon.mod.common.api.riding.behaviour.types.";
         if (side == MixinEnvironment.Side.SERVER) {
@@ -72,6 +73,23 @@ public final class RidingMixinTest {
     }
 
     private record Target(String name, int clientStaminaCalls, Map<String, Integer> sharedCalls) {}
+
+    private static void verifyFormInputs(Service service) throws Exception {
+        ClassNode modifiers = service.getClassNode("com.example.cobblemonridingtweaks.riding.RidingModifiers");
+        for (String methodName : List.of("staminaAfterDrain", "speedMultiplier")) {
+            var method = modifiers.methods.stream().filter(candidate -> candidate.name.equals(methodName)).findFirst().orElseThrow();
+            int formReads = 0;
+            for (var instruction : method.instructions) {
+                if (instruction instanceof MethodInsnNode call
+                        && call.owner.equals("com/cobblemon/mod/common/pokemon/FormData") && call.name.equals("getName")) {
+                    formReads++;
+                }
+            }
+            if (formReads != 1) {
+                throw new AssertionError(methodName + " must pass the current registered form name to config matching");
+            }
+        }
+    }
 
     private static void verify(IMixinTransformer transformer, MixinEnvironment environment,
                                Service service, String name, Map<String, Integer> expectedCalls) throws Exception {

@@ -1,12 +1,14 @@
 package com.example.cobblemonridingtweaks.config;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 public final class RidingTweaksConfig {
-    public static final String SUPPORTED_CONFIG_VERSION = "1.2.0";
+    public static final String SUPPORTED_CONFIG_VERSION = "1.3.0";
+    public static final String ALL_FORMS = "*";
     public static final String STACKING_MODE_ADDITIVE = "additive";
     public static final String STACKING_MODE_MULTIPLICATIVE = "multiplicative";
     public static final String LABEL_MODE_HIGHEST = "highest";
@@ -332,7 +334,7 @@ public final class RidingTweaksConfig {
         public Map<String, Double> behaviourMultipliers = emptyMultipliers();
         public double defaultLabelMultiplier = 1.0D;
         public Map<String, Double> labelMultipliers = emptyMultipliers();
-        public Map<String, Double> speciesOverrides = emptyMultipliers();
+        public List<SpeciesOverride> speciesOverrides = new ArrayList<>();
 
         private void sanitize(boolean includeKnownKeys) {
             stackingMode = sanitizeStackingMode(stackingMode);
@@ -342,7 +344,20 @@ public final class RidingTweaksConfig {
             rideStyleMultipliers = sanitizeMultiplierMap(rideStyleMultipliers, allRideStyleMultipliers(), includeKnownKeys);
             behaviourMultipliers = sanitizeMultiplierMap(behaviourMultipliers, allBehaviourMultipliers(), includeKnownKeys);
             labelMultipliers = sanitizeMultiplierMap(labelMultipliers, defaultLabelMultipliers(), includeKnownKeys);
-            speciesOverrides = sanitizeMultiplierMap(speciesOverrides, emptyMultipliers(), false);
+            Map<List<String>, SpeciesOverride> overrides = new LinkedHashMap<>();
+            if (speciesOverrides != null) {
+                for (SpeciesOverride entry : speciesOverrides) {
+                    if (entry == null || entry.species == null || entry.species.isBlank()) {
+                        continue;
+                    }
+                    entry.species = normalizeKey(entry.species);
+                    entry.form = entry.form == null || entry.form.isBlank() ? ALL_FORMS : normalizeKey(entry.form);
+                    entry.multiplier = sanitizeMultiplier(entry.multiplier, 1.0D);
+                    // Manually repeated targets keep the last value, like the old JSON map.
+                    overrides.put(List.of(entry.species, entry.form), entry);
+                }
+            }
+            speciesOverrides = new ArrayList<>(overrides.values());
             defaultLabelMultiplier = sanitizeMultiplier(defaultLabelMultiplier, 1.0D);
             minFinalMultiplier = sanitizeMultiplier(minFinalMultiplier, 0.01D);
             maxFinalMultiplier = Math.max(minFinalMultiplier, sanitizeMultiplier(maxFinalMultiplier, 10.0D));
@@ -350,6 +365,21 @@ public final class RidingTweaksConfig {
                 levelScaling = new LevelScaling();
             }
             levelScaling.sanitize();
+        }
+    }
+
+    public static final class SpeciesOverride {
+        public String species = "";
+        public String form = ALL_FORMS;
+        public double multiplier = 1.0D;
+
+        public SpeciesOverride() {
+        }
+
+        public SpeciesOverride(String species, String form, double multiplier) {
+            this.species = species;
+            this.form = form;
+            this.multiplier = multiplier;
         }
     }
 

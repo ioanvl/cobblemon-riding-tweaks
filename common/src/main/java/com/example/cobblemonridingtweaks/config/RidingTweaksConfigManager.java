@@ -3,6 +3,7 @@ package com.example.cobblemonridingtweaks.config;
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -11,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -212,6 +212,7 @@ public final class RidingTweaksConfigManager {
             int level,
             Collection<String> labels,
             String speciesId,
+            String form,
             String rideStyle,
             String behaviour,
             int naturalHpIv,
@@ -231,6 +232,7 @@ public final class RidingTweaksConfigManager {
                 level,
                 labels,
                 speciesId,
+                form,
                 rideStyle,
                 behaviour,
                 naturalHpIv,
@@ -247,6 +249,7 @@ public final class RidingTweaksConfigManager {
             int level,
             Collection<String> labels,
             String speciesId,
+            String form,
             String rideStyle,
             String behaviour,
             int naturalSpeedIv,
@@ -266,6 +269,7 @@ public final class RidingTweaksConfigManager {
                 level,
                 labels,
                 speciesId,
+                form,
                 rideStyle,
                 behaviour,
                 naturalSpeedIv,
@@ -283,6 +287,7 @@ public final class RidingTweaksConfigManager {
             int level,
             Collection<String> labels,
             String speciesId,
+            String form,
             String rideStyle,
             String behaviour,
             int naturalHpIv,
@@ -297,6 +302,7 @@ public final class RidingTweaksConfigManager {
                 level,
                 labels,
                 speciesId,
+                form,
                 rideStyle,
                 behaviour,
                 naturalHpIv,
@@ -326,6 +332,7 @@ public final class RidingTweaksConfigManager {
             int level,
             Collection<String> labels,
             String speciesId,
+            String form,
             String rideStyle,
             String behaviour,
             int naturalHpIv,
@@ -336,7 +343,7 @@ public final class RidingTweaksConfigManager {
             boolean effectiveStatIncreasingNature,
             boolean effectiveStatDecreasingNature
     ) {
-        List<Double> factors = configuredFactors(feature, level, labels, speciesId, rideStyle, behaviour);
+        List<Double> factors = configuredFactors(feature, level, labels, speciesId, form, rideStyle, behaviour);
         addNatureStatFactor(
                 factors,
                 feature,
@@ -356,6 +363,7 @@ public final class RidingTweaksConfigManager {
             int level,
             Collection<String> labels,
             String speciesId,
+            String form,
             String rideStyle,
             String behaviour,
             int naturalSpeedIv,
@@ -366,7 +374,7 @@ public final class RidingTweaksConfigManager {
             boolean effectiveSpeedIncreasingNature,
             boolean effectiveSpeedDecreasingNature
     ) {
-        List<Double> factors = configuredFactors(feature, level, labels, speciesId, rideStyle, behaviour);
+        List<Double> factors = configuredFactors(feature, level, labels, speciesId, form, rideStyle, behaviour);
         addSpeedStatFactors(
                 factors,
                 feature,
@@ -386,6 +394,7 @@ public final class RidingTweaksConfigManager {
             int level,
             Collection<String> labels,
             String speciesId,
+            String form,
             String rideStyle,
             String behaviour
     ) {
@@ -393,7 +402,7 @@ public final class RidingTweaksConfigManager {
         factors.add(feature.globalMultiplier);
         factors.add(levelMultiplier(feature, level));
         addRidingFactors(factors, feature, rideStyle, behaviour);
-        addSpeciesOrLabelFactors(factors, feature, labels, speciesId);
+        addSpeciesOrLabelFactors(factors, feature, labels, speciesId, form);
         return factors;
     }
 
@@ -508,10 +517,11 @@ public final class RidingTweaksConfigManager {
             List<Double> factors,
             RidingTweaksConfig.FeatureTweaks feature,
             Collection<String> labels,
-            String speciesId
+            String speciesId,
+            String form
     ) {
         if (feature.speciesOverridesEnabled) {
-            Double speciesMultiplier = speciesMultiplier(feature, speciesId);
+            Double speciesMultiplier = speciesMultiplier(feature, speciesId, form);
             if (speciesMultiplier != null) {
                 factors.add(speciesMultiplier);
                 if (RidingTweaksConfig.SPECIES_MODE_OVERRIDE.equals(feature.speciesMode)) {
@@ -564,18 +574,33 @@ public final class RidingTweaksConfigManager {
         return Math.clamp(multiplier, min, max);
     }
 
-    private Double speciesMultiplier(RidingTweaksConfig.FeatureTweaks feature, String speciesId) {
+    private Double speciesMultiplier(RidingTweaksConfig.FeatureTweaks feature, String speciesId, String form) {
         if (speciesId == null || speciesId.isBlank()) {
             return null;
         }
-
         String normalized = RidingTweaksConfig.normalizeKey(speciesId);
-        Double exact = keyedMultiplierOrNull(feature.speciesOverrides, normalized);
-        if (exact != null) {
-            return exact;
+        int separator = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf(':'));
+        String shortName = normalized.substring(separator + 1);
+        String normalizedForm = form == null ? "" : RidingTweaksConfig.normalizeKey(form);
+        Double result = null;
+        int bestPriority = -1;
+        for (RidingTweaksConfig.SpeciesOverride entry : feature.speciesOverrides) {
+            boolean exactSpecies = entry.species.equals(normalized);
+            if (!exactSpecies && !entry.species.equals(shortName)) {
+                continue;
+            }
+            boolean allForms = RidingTweaksConfig.ALL_FORMS.equals(entry.form);
+            if (!allForms && !entry.form.equals(normalizedForm)) {
+                continue;
+            }
+            // Form specificity comes first; a full species ID wins over a short alias on ties.
+            int priority = (allForms ? 0 : 2) + (exactSpecies ? 1 : 0);
+            if (priority >= bestPriority) {
+                result = entry.multiplier;
+                bestPriority = priority;
+            }
         }
-
-        return null;
+        return result;
     }
 
     private static double keyedMultiplier(Map<String, Double> multipliers, String key) {
@@ -608,13 +633,38 @@ public final class RidingTweaksConfigManager {
         try {
             String json = Files.readString(path);
             String configVersion = readConfigVersion(json);
-            try (Reader reader = Files.newBufferedReader(path)) {
-                RidingTweaksConfig config = GSON.fromJson(reader, RidingTweaksConfig.class);
-                return migrateLocalConfig(config == null ? new RidingTweaksConfig() : config, configVersion);
-            }
+            JsonElement root = JsonParser.parseString(json);
+            migrateSpeciesOverrides(root);
+            RidingTweaksConfig config = GSON.fromJson(root, RidingTweaksConfig.class);
+            return migrateLocalConfig(config == null ? new RidingTweaksConfig() : config, configVersion);
         } catch (IOException | JsonSyntaxException | IllegalStateException | UnsupportedOperationException exception) {
             LOGGER.error("Failed to read {} config from {}; using defaults", CobblemonRidingTweaks.MOD_NAME, path, exception);
             return new RidingTweaksConfig();
+        }
+    }
+
+    private static void migrateSpeciesOverrides(JsonElement root) {
+        if (!root.isJsonObject()) {
+            return;
+        }
+        for (String section : List.of("stamina", "speed")) {
+            JsonElement feature = root.getAsJsonObject().get(section);
+            if (feature == null || !feature.isJsonObject()) {
+                continue;
+            }
+            JsonElement entries = feature.getAsJsonObject().get("speciesOverrides");
+            if (entries == null || !entries.isJsonObject()) {
+                continue;
+            }
+            JsonArray migrated = new JsonArray();
+            entries.getAsJsonObject().entrySet().forEach(entry -> {
+                JsonObject rule = new JsonObject();
+                rule.addProperty("species", entry.getKey());
+                rule.addProperty("form", RidingTweaksConfig.ALL_FORMS);
+                rule.add("multiplier", entry.getValue());
+                migrated.add(rule);
+            });
+            feature.getAsJsonObject().add("speciesOverrides", migrated);
         }
     }
 
@@ -805,7 +855,13 @@ public final class RidingTweaksConfigManager {
         warnForInvalidNumbers(section + ".rideStyleMultipliers", feature.rideStyleMultipliers);
         warnForInvalidNumbers(section + ".behaviourMultipliers", feature.behaviourMultipliers);
         warnForInvalidNumbers(section + ".labelMultipliers", feature.labelMultipliers);
-        warnForInvalidNumbers(section + ".speciesOverrides", feature.speciesOverrides);
+        if (feature.speciesOverrides != null) {
+            for (RidingTweaksConfig.SpeciesOverride entry : feature.speciesOverrides) {
+                if (entry != null) {
+                    warnIfInvalid(section + ".speciesOverrides[" + entry.species + ", " + entry.form + "]", entry.multiplier);
+                }
+            }
+        }
     }
 
     private static void warnForInvalidStatScaling(String section, RidingTweaksConfig.IvEvStatScaling scaling) {

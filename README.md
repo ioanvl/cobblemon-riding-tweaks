@@ -16,7 +16,7 @@ Cobblemon Riding Tweaks is a Minecraft 1.21.1 mod for Cobblemon 1.7.3, 1.8.0, an
 - Ride style multipliers for land, liquid, and air.
 - Behaviour multipliers for all Cobblemon riding behaviours, such as horse, bird, jet, boat, dolphin, submarine, and more.
 - Label multipliers for Cobblemon form labels such as legendary, mythical, ultra beast, mega, primal, gmax, and any other labels.
-- Species overrides for specific Pokemon species IDs.
+- Species overrides for all forms or individual forms of a Pokemon, including datapack forms.
 - Additive or multiplicative multiplier combining.
 - Label behaviour modes: highest matching label or stacking labels.
 - Species behaviour modes: override labels or stack with labels.
@@ -62,9 +62,36 @@ config/cobblemon-riding-tweaks.json
 
 Most values are multipliers. `1.0` means no change, values above `1.0` make stamina last longer or speed faster, and values below `1.0` make stamina drain faster or speed slower. The mod keeps multiplier values at or above `0.01` internally, so zero or negative entries do not break the math.
 
-Mod version `1.2.0` uses config version `1.2.0` to separate the corrected riding mechanics from older clients. Existing local/server config files migrate automatically without resetting settings. Update the server and clients together when the config version changes: config `1.2.0` accepts only `1.2.0`, and rejects even `1.2.1`. Incompatible clients can still join using neutral `x1` tweaks; this check does not enforce client versions or prevent modified clients.
+This development branch uses config version `1.3.0` for form-specific species overrides; the published mod `1.2.0` uses config `1.2.0`. Existing local/server files migrate automatically without resetting settings. Update the server and clients together when the config version changes: config `1.3.0` accepts only `1.3.0`, including the patch number. Incompatible clients can still join using neutral `x1` tweaks; this check does not enforce client versions or prevent modified clients.
 
 Changes in the config screen are only written when you press **Save**.
+
+Wider windows show a sidebar with General and grouped Stamina/Speed pages. **Behaviour** contains both ride styles and individual behaviours. Narrow windows and high GUI scales use compact navigation with a searchable section dropdown. Disabled sections stay accessible and appear dimmed; the summary shows **Off** when the mod or feature switch is off. The main Mod/Stamina/Speed switches use green **On** and red **Off** text. **Reload**, **Save** and **Done** share one row below the settings, with a single line for unsaved changes or save feedback.
+
+### Species and forms
+
+Each species row has searchable, scrollable **Species** and **Form** dropdowns. New rows start with **(Choose Pokémon)**. Search by Pokémon name or species ID; selecting one immediately updates the form choices. The species button displays its name and keeps its full ID in the tooltip and config. Choose **All forms** for the whole species, or a specific form. Add another row with the same species to tune a different form. Existing species overrides migrate to All forms.
+
+When Cobblemon's species registry is empty (for example, on a fresh title screen), the pickers use the species/forms bundled with Cobblemon. Once a world, server or another mod has populated that registry, its current data takes precedence, including datapack additions. This mod does not load worlds or datapacks for the picker.
+
+For example, `cobblemon:goodra` with **Standard (Kalos)** affects standard Goodra; **Hisuian Form** affects Hisuian Goodra. A matching specific-form entry takes precedence over that species' All forms entry. Only one species multiplier applies, then **Species Behaviour** determines whether it replaces label multipliers or combines with them. Other factors and final limits still apply as usual.
+
+Form names use Cobblemon's translations when available. Unnamed base forms use Standard plus an unambiguous region, or just Standard; untranslated custom forms keep their registered names. Matching uses the registered form name, independently of display language. Unavailable saved forms remain visible and do not silently become All forms. Changing a row's species resets its selection to All forms. Duplicate species/form targets must be resolved before saving.
+
+The file format within either `stamina` or `speed` is:
+
+```json
+"speciesOverrides": [
+  { "species": "cobblemon:goodra", "form": "*", "multiplier": 1.0 },
+  { "species": "cobblemon:goodra", "form": "normal", "multiplier": 1.5 }
+]
+```
+
+`*` means All forms; `normal` is Cobblemon's standard form name. Fully qualified species IDs are recommended. Legacy short names still match as fallbacks; a full ID wins over a short name at the same form specificity. Cosmetics/aspects and held-item conditions are outside this feature's scope.
+
+### Labels
+
+Label rows use the same searchable dropdown. Choices include known labels and labels found in available species/form data. **Add Label** opens the picker directly; labels already used by another row are excluded. To add a custom label, type its ID and choose **Use custom label**. Changing a row's label preserves its multiplier. All edits remain drafts until Save.
 
 ### Presets
 

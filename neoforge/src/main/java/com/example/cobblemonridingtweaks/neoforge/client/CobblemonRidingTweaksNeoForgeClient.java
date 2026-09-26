@@ -2,6 +2,7 @@ package com.example.cobblemonridingtweaks.neoforge.client;
 
 import com.example.cobblemonridingtweaks.CobblemonRidingTweaks;
 import com.example.cobblemonridingtweaks.client.RidingTweaksConfigScreen;
+import com.example.cobblemonridingtweaks.client.CobblemonCatalog;
 import com.example.cobblemonridingtweaks.net.ConfigClientHandlers;
 import com.example.cobblemonridingtweaks.neoforge.net.CobblemonRidingTweaksNeoForgeNetworking;
 import net.minecraft.client.Minecraft;
@@ -22,6 +23,9 @@ public final class CobblemonRidingTweaksNeoForgeClient {
         modBus.addListener(CobblemonRidingTweaksNeoForgeClient::onClientSetup);
         NeoForge.EVENT_BUS.addListener(CobblemonRidingTweaksNeoForgeClient::onClientLoggingIn);
         NeoForge.EVENT_BUS.addListener(CobblemonRidingTweaksNeoForgeClient::onClientLoggingOut);
+        CobblemonCatalog.setBundledRoots(() -> java.util.List.of(ModList.get().getModFileById("cobblemon")
+                .getFile().findResource("data", "cobblemon", "species")));
+        RidingTweaksConfigScreen.setCatalogProviders(CobblemonCatalog::species, CobblemonCatalog::forms, CobblemonCatalog::labels);
         RidingTweaksConfigScreen.setServerConfigUpdateSender(CobblemonRidingTweaksNeoForgeNetworking::sendConfigUpdateToServer);
         ConfigClientHandlers.setEditResultHandler(RidingTweaksConfigScreen::showFeedback);
     }
