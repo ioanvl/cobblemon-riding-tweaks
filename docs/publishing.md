@@ -28,11 +28,13 @@ publish to either store.
 3. Run a manual dry run as described below. The dry run validates public release
    assets and prior publication records; it does **not** validate store tokens
    or prove that either store will accept an upload.
-4. Add repository **variable** `PUBLISH_RELEASES` with value `true` in
-   [Actions variables](https://github.com/ioanvl/cobblemon-riding-tweaks/settings/variables/actions)
-   when ready to enable automatic distribution of future published releases.
-   Removing it or setting it to `false` disables the automatic trigger; manual
-   publishing remains available to maintainers.
+4. Automatic distribution is enabled by default for future published stable
+   releases. No repository variable is required. To pause it, set the optional
+   repository variable `PUBLISH_RELEASES` to `false` in
+   [Actions variables](https://github.com/ioanvl/cobblemon-riding-tweaks/settings/variables/actions).
+   Removing that variable or setting it to `true` resumes automatic publishing.
+   Manual publishing remains available to maintainers while the automatic
+   trigger is paused.
 
 Project IDs are already configured: Modrinth `8JWE9x1o`, CurseForge `1592779`.
 Cobblemon is marked required on both loaders; Fabric API is required and Mod

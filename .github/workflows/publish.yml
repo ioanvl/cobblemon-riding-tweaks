@@ -36,7 +36,7 @@ jobs:
     if: >-
       github.repository == 'ioanvl/cobblemon-riding-tweaks' &&
       ((github.event_name == 'release' && !github.event.release.prerelease &&
-        vars.PUBLISH_RELEASES == 'true') ||
+        vars.PUBLISH_RELEASES != 'false') ||
        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     outputs:
